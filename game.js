@@ -6,6 +6,8 @@ const $=id=>document.getElementById(id);
 const cv=$('cv'),ctx=cv.getContext('2d');
 // ---------- images ----------
 const IM={};
+// v11: painted v14 walk-cycle atlases (8 frames, 3 px per world px): [frameW,frameH,anchorX,anchorY(feet),idleFrame]
+const VK=3,VM={"avis_ne":[103,118,55.5,114.2,0],"avis_sw":[104,105,52.0,98.4,0],"elnias_ne":[106,138,59.7,133.3,0],"elnias_sw":[112,126,55.0,116.6,3],"karve_ne":[139,133,71.7,129.8,2],"karve_sw":[146,129,73.0,119.9,0],"mergaite_ne":[34,81,17.7,76.5,3],"mergaite_sw":[30,81,14.9,76.5,3],"moteris_ne":[35,99,17.8,97.6,5],"moteris_sw":[40,103,20.0,97.6,2],"vaikas_ne":[33,81,17.2,76.5,6],"vaikas_sw":[35,82,16.8,76.4,2],"vyras_ne":[48,105,23.3,103.6,6],"vyras_sw":[53,112,25.9,103.6,2]};
 function img(n){let i=IM[n];if(!i){i=new Image();i.src='img/'+n+'.webp';IM[n]=i;}return i.complete&&i.naturalWidth?i:null;}
 // ---------- definitions ----------
 const B={
@@ -55,10 +57,11 @@ function newGame(){
 }
 function grow3(){for(const b of S.b){if(b.s>=3)continue;let ok=true;for(let i=0;i<3&&ok;i++)for(let j=0;j<3;j++){const X=b.x+i,Y=b.y+j,q=idx(X,Y);if(!inM(X,Y)||'wuc'.includes(terr(X,Y))||(occ[q]&&occ[q]!=b.id)||objAt[q]||BR.has(q)||RD.has(q)){ok=false;break;}}
  if(ok){markB(b,0);b.s=3;markB(b,b.id);b.an=null;}}}
-function rebuildGrids(){occ=new Int32Array(N*N);objAt=new Array(N*N).fill(null);
+function rebuildGrids(){RCH=null;occ=new Int32Array(N*N);objAt=new Array(N*N).fill(null);
  for(const o of S.objs)objAt[idx(o.x,o.y)]=o;
  for(const b of S.b)markB(b,b.id);}
-function markB(b,v){const s=b.s;for(let i=0;i<s;i++)for(let j=0;j<s;j++)occ[idx(b.x+i,b.y+j)]=v;b.door=null;if(S)for(const q of S.b){q.door=null;q.fish=null;}}
+let RCH=null;
+function markB(b,v){RCH=null;const s=b.s;for(let i=0;i<s;i++)for(let j=0;j<s;j++)occ[idx(b.x+i,b.y+j)]=v;b.door=null;if(S)for(const q of S.b){q.door=null;q.fish=null;}}
 function addB(t,x,y,lv){const d=B[t];const b={id:S.id++,t,x,y,lv,s:d.size[Math.max(0,lv-1)],st:'ok',wk:[],pan:0,wood:2,fire:0,burn:0,hap:60};if(t=='malkine')b.mk=0;if(t=='ukis')b.f={st:0,sow:0,g:0,cut:0};if(t=='gyvuliai'){b.herd={c:2,s:3};b.vb=0;}if(t=='namas')b.cl=0;
  for(let i=0;i<b.s;i++)for(let j=0;j<b.s;j++)if(RD.has(idx(x+i,y+j))){RD.delete(idx(x+i,y+j));}S.roads=[...RD];
  if(!lv){b.st='site';b.s=d.size[0];b.site=mkSite(t,0);}
@@ -82,7 +85,14 @@ const seen=(x,y)=>inM(x|0,y|0)&&S.fog[idx(x|0,y|0)];
 // ---------- map helpers ----------
 function isMtn(x,y){return 'uc'.includes(terr(x,y));}
 function walk(x,y){if(!inM(x,y))return false;const t=terr(x,y);if(t=='w')return BR.has(idx(x,y));if(t=='u'||t=='c')return false;return !occ[idx(x,y)];}
+// v11: tiles reachable on foot from the storehouses (or the start) – builders/carriers can only work on sites whose door is in this set
+function reach(){if(RCH)return RCH;const R=new Uint8Array(N*N),Q=[];const add=(x,y)=>{if(inM(x,y)&&walk(x,y)&&!R[idx(x,y)]){R[idx(x,y)]=1;Q.push(x,y);}};
+ const st=S?S.b.filter(b=>b.t=='sandelis'&&b.st!='site'):[];for(const b of st)for(let i=-1;i<=b.s;i++)for(const[x,y]of[[b.x+i,b.y-1],[b.x+i,b.y+b.s],[b.x-1,b.y+i],[b.x+b.s,b.y+i]])add(x,y);if(!Q.length)add(44,44);
+ for(let k=0;k<Q.length;k+=2){const x=Q[k],y=Q[k+1];add(x+1,y);add(x-1,y);add(x,y+1);add(x,y-1);}return RCH=R;}
+function reachB(b,R){R=R||reach();for(let i=-1;i<=b.s;i++)for(const[x,y]of[[b.x+i,b.y-1],[b.x+i,b.y+b.s],[b.x-1,b.y+i],[b.x+b.s,b.y+i]])if(inM(x,y)&&R[idx(x,y)])return true;return false;}
+const siteOK=b=>{const d=door(b);return inM(d.x,d.y)&&!!reach()[idx(d.x,d.y)];};
 function door(b){if(b.door)return b.door;const s=b.s,c=[[b.x+(s>>1),b.y+s],[b.x+s,b.y+(s>>1)],[b.x+(s>>1),b.y-1],[b.x-1,b.y+(s>>1)],[b.x+s,b.y+s],[b.x-1,b.y+s],[b.x+s,b.y-1],[b.x-1,b.y-1]];
+ {const R=reach();for(const[x,y]of c)if(walk(x,y)&&R[idx(x,y)])return b.door={x,y};for(let i=-1;i<=s;i++)for(const[x,y]of[[b.x+i,b.y-1],[b.x+i,b.y+s],[b.x-1,b.y+i],[b.x+s,b.y+i]])if(inM(x,y)&&R[idx(x,y)])return b.door={x,y};}
  for(const[x,y]of c)if(walk(x,y))return b.door={x,y};for(let r=2;r<6;r++)for(let i=-r;i<s+r;i++)for(const[x,y]of[[b.x+i,b.y+s-1+r],[b.x+s-1+r,b.y+i]])if(walk(x,y))return b.door={x,y};return b.door={x:b.x,y:b.y+s};}
 // ---------- A* ----------
 const G=new Float32Array(6400),CF=new Int32Array(6400),ST=new Int32Array(6400);let stamp=1;
@@ -116,7 +126,7 @@ function takeFood(n){let g=0;while(g<n&&food()>=1){if(S.res.d>=1){S.res.d--;g+=2
 // ---------- villagers: actions ----------
 function release(p){const r=p.res;if(!r)return;p.res=null;
  if(r.k=='obj')r.o.res=0;else if(r.k=='inb'){const b=bId(r.b);if(b&&b.site)b.site.inb[r.r]=Math.max(0,b.site.inb[r.r]-r.n);}else if(r.k=='deer'){r.o.res=0;r.o.st=0;}else if(r.k=='heal'){const s=S.p.find(q=>q.id==r.p);if(s)s.treat=0;}}
-function abort(p){release(p);if(p.meat){deposit('mesa',p.meat);p.meat=0;}p.q=[];p.path=null;if(p.hold){for(const k in p.hold)if(p.hold[k]>0)deposit(k,p.hold[k]);p.hold=null;p.carry=null;}}
+function abort(p){release(p);p.help=0;if(p.meat){deposit('mesa',p.meat);p.meat=0;}p.q=[];p.path=null;if(p.hold){for(const k in p.hold)if(p.hold[k]>0)deposit(k,p.hold[k]);p.hold=null;p.carry=null;}}
 const GO=(x,y)=>({a:'go',x,y}),WAIT=(t,l,inside)=>({a:'w',t,l,inside}),FN=f=>({a:'f',f});
 const toB=b=>{const d=door(b);return GO(d.x,d.y);};
 function workMul(p){const h=home(p);return 0.7+0.5*((h?h.hap:50)/100);}
@@ -127,15 +137,21 @@ function stepP(p,dt){
  if(p.sick){p.sick-=dt*(p.herbSelf?2.5:1);if(p.sick<=0){p.sick=0;p.treat=0;p.herbSelf=0;if(!p.ch)toast(p.nm+' pasveiko pats');}}
  const a=p.q[0];if(!a){brain(p);return;}
  if(a.a=='go'){
+  p.fade=0;if(!p.path&&a.free&&lineOK(p.x,p.y,a.x+.5,a.y+.5)){p.path=[[p.x,p.y],[a.x+.5,a.y+.5]];p.pi=1;}
   if(!p.path){const r=astar(p.x,p.y,a.x,a.y);if(!r){abort(p);p.idle=2;return;}p.path=smooth(r,p.off);p.pi=1;}
   const sp=(p.ch?1.3:1.5)*(p.sick?0.6:1)*(RD.has(idx(p.x|0,p.y|0))?1.6:1)*dt;let left=sp;
   while(left>0&&p.pi<p.path.length){const[tx,ty]=p.path[p.pi],dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);
    if(d<=left){p.x=tx;p.y=ty;left-=d;p.pi++;}else{p.x+=dx/d*left;p.y+=dy/d*left;left=0;}
-   const sx=dx-dy;if(Math.abs(sx)>0.01)p.fl=sx>0?1:-1;}
+   const sx=dx-dy,sy=dx+dy;if(Math.abs(sx)>0.01)p.fl=sx>0?1:-1;if(Math.abs(sy)>0.01)p.bk=sy<0?1:0;}
   p.ph+=dt*9;p.in=0;p.mv=1;
   const wi=((p.y*2)|0)*2*N+((p.x*2)|0);if(S.wear[wi]<100){S.wear[wi]+=dt*1.2;if(S.wear[wi]>5&&S.wear[wi]-dt*1.2<=5)wearDirty=true;}
   if(p.pi>=p.path.length){p.q.shift();p.path=null;}
- }else if(a.a=='w'){p.mv=0;p.in=a.inside?1:0;p.act=a.l||p.act;a.t-=dt;if(a.t<=0)p.q.shift();}
+ }else if(a.a=='w'){p.mv=0;
+  // v11: visibly step through the door before disappearing inside
+  if(a.inside&&!a.ent&&!p.in){if(a.ex==null){const b=S.b.find(q=>q.st!='site'&&q.lv&&Math.hypot(door(q).x+.5-p.x,door(q).y+.5-p.y)<1.3);if(b){const dx=b.x+b.s/2-p.x,dy=b.y+b.s/2-p.y,l=Math.hypot(dx,dy)||1,k=Math.min(1,l)/l;a.ox=p.x;a.oy=p.y;a.ex=p.x+dx*k;a.ey=p.y+dy*k;a.d0=Math.min(1,l);}else a.ent=1;}
+   if(!a.ent){const dx=a.ex-p.x,dy=a.ey-p.y,d=Math.hypot(dx,dy),st=1.2*dt;if(Math.abs(dx-dy)>.01)p.fl=dx-dy>0?1:-1;if(Math.abs(dx+dy)>.01)p.bk=dx+dy<0?1:0;
+    if(d<=st){a.ent=1;p.x=a.ox;p.y=a.oy;p.fade=0;}else{p.x+=dx/d*st;p.y+=dy/d*st;p.mv=1;p.ph+=dt*9;p.fade=Math.max(0,1-(d-st)/a.d0)*0.85;p.act=a.l||p.act;return;}}}
+  p.fade=0;p.in=a.inside?1:0;p.act=a.l||p.act;a.t-=dt;if(a.t<=0)p.q.shift();}
  else{p.q.shift();const r=a.f(p);if(r===false)abort(p);}
 }
 function brain(p){
@@ -148,7 +164,7 @@ function brain(p){
  if(isNight()&&!h){p.q=[WAIT(4,'miega po atviru dangumi')];p.act='miega lauke';return;}
  if(p.ch){
   if(p.hu>60&&h&&meals(h)>=1){p.q=[toB(h),WAIT(2,'mama maitina',1),FN(q=>{eat(q);})];return;}
-  const d=h?door(h):{x:44,y:44};p.q=[GO(d.x+Math.round(rnd(-3,3)),d.y+Math.round(rnd(-2,3))),WAIT(rnd(2,5),'žaidžia')];p.act='žaidžia';return;}
+  const d=h?door(h):{x:44,y:44},ys=yardSpot(d,p);p.q=[ys?{a:'go',x:ys[0],y:ys[1],free:1}:GO(d.x+Math.round(rnd(-3,3)),d.y+Math.round(rnd(-2,3))),WAIT(rnd(2,5),'žaidžia')];p.act='žaidžia';return;}
  // hunger / rest
  if((p.hu>70||p.en<20)&&h){
   const q=[];const mom=S.p.find(z=>z.home==h.id&&z.sex=='f'&&!z.ch&&!z.sick&&!z.job);if(meals(h)<1&&mom&&food()>=1){q.push(toB(h),WAIT(6,'laukia vakarienės',1));}else if(meals(h)<1&&food()>=1){const s=nearest(stores(),p.x,p.y);if(s)q.push(toB(s),FN(o=>{const g=takeFood(2);if(g)o.carry={k:'food',n:g};}),toB(h),FN(o=>{const hh=home(o);if(o.carry&&hh){hh.dry=(hh.dry||0)+o.carry.n;o.carry=null;}}));}
@@ -167,20 +183,31 @@ function brain(p){
  }
  const j=bId(p.job);
  if(j){if(doJob(p,j))return;}
- if(p.role){const b=bId(p.role);if(b&&b.site){const s=b.site;const frac=sum(s.got)/Math.max(1,sum(s.need));if(s.prog>=s.tot*frac-0.01&&s.got.a<s.need.a&&S.res.a+s.inb.a<s.need.a-s.got.a&&p.sex=='m'&&stoneTask(p,1))return;builderTask(p,b);return;}p.role=0;}
+ if(p.role){const b=bId(p.role);if(b&&b.site&&siteOK(b)){const s=b.site;const frac=sum(s.got)/Math.max(1,sum(s.need));if(s.prog>=s.tot*frac-0.01&&s.got.a<s.need.a&&S.res.a+s.inb.a<s.need.a-s.got.a&&p.sex=='m'&&stoneTask(p,1))return;builderTask(p,b);return;}p.role=0;}
  if(p.sg&&!j){if(stoneTask(p,1))return;p.sg=0;}
  if(!j&&carrierTask(p))return;
+ if(!j&&p.sex=='m'&&!p.ch&&helperTask(p))return;
  if(!j&&p.sex=='m'&&stoneTask(p))return;
  if(p.sex=='f'&&h&&!j){p.q=[toB(h),WAIT(6,'gamina valgį',1)];p.act='namuose';return;}
  const c=nearest(stores(),p.x,p.y)||h;if(c){const d=door(c);p.q=[GO(d.x+Math.round(rnd(-3,3)),d.y+Math.round(rnd(-1,3))),WAIT(rnd(3,6),'laisvas')];}else p.q=[WAIT(3,'laisvas')];p.act='laisvas';
 }
-function builderTask(p,b){p.q=[toB(b),FN(o=>{o.act='stato';face(o,b.x+b.s/2,b.y+b.s/2);}),WAIT(1,'stato'),FN(o=>{const bb=bId(o.role);if(!bb||!bb.site)return false;const s=bb.site;
+// v11: children play on grass in yards (straight line when clear, not only along paths)
+function yardSpot(d,p){for(let k=0;k<25;k++){const r=rnd(1.5,5.5),a=R()*6.283,x=Math.round(d.x+Math.cos(a)*r),y=Math.round(d.y+Math.sin(a)*r);if(inM(x,y)&&walk(x,y)&&'gp'.includes(terr(x,y))&&!RD.has(idx(x,y))&&!(objAt[idx(x,y)]&&isTree(objAt[idx(x,y)])))return[x,y];}return null;}
+function lineOK(x0,y0,x1,y1){const l=Math.hypot(x1-x0,y1-y0),n=Math.ceil(l/0.3);if(l>8)return false;for(let i=0;i<=n;i++){const x=x0+(x1-x0)*i/n,y=y0+(y1-y0)*i/n;if(!walk(x|0,y|0))return false;}return true;}
+function siteLim(s){return s.tot*sum(s.got)/Math.max(1,sum(s.need));}
+function builderTask(p,b){const s0=b.site;if(s0&&s0.prog>=siteLim(s0)-1e-6&&!(s0.prog>=s0.tot-1e-6)){p.q=[toB(b),FN(o=>{face(o,b.x+b.s/2,b.y+b.s/2);}),WAIT(2,'laukia medžiagų')];p.act='laukia medžiagų';return;}
+ p.q=[toB(b),FN(o=>{o.act='stato';face(o,b.x+b.s/2,b.y+b.s/2);}),WAIT(1,'stato'),FN(o=>{const bb=bId(o.role);if(!bb||!bb.site)return false;const s=bb.site;
  const frac=sum(s.got)/Math.max(1,sum(s.need));const lim=s.tot*frac;if(s.prog<lim){s.prog=Math.min(lim,s.prog+workMul(o));o.act='stato';}else o.act='laukia medžiagų';
  if(s.prog>=s.tot-1e-6&&frac>=1)finishSite(bb);})];p.act='stato';}
+// v11: idle men help on construction sites that have materials waiting to be built in (max 2 helpers per site)
+function helperTask(p){let best=null,bd=1e9;for(const b of S.b){if(!b.site||!siteOK(b))continue;const s=b.site;if(s.prog>=siteLim(s)-1.5)continue;if(S.p.filter(q=>q.help==b.id).length>=2)continue;const d=Math.hypot(b.x-p.x,b.y-p.y);if(d<bd&&d<45){bd=d;best=b;}}
+ if(!best)return false;const b=best,R=reach(),ring=[];for(let i=-1;i<=b.s;i++)for(const[x,y]of[[b.x+i,b.y+b.s],[b.x+b.s,b.y+i],[b.x+i,b.y-1],[b.x-1,b.y+i]])if(inM(x,y)&&R[idx(x,y)])ring.push([x,y]);const sp=ring.length?ring[(p.id*3)%ring.length]:[door(b).x,door(b).y];
+ p.help=b.id;const cyc=()=>[FN(o=>{o.act='stato';face(o,b.x+b.s/2,b.y+b.s/2);}),WAIT(1,'stato'),FN(o=>{const bb=bId(b.id);if(!bb||!bb.site){o.help=0;return false;}const s=bb.site,lim=siteLim(s);if(s.prog>=lim-1e-6){o.help=0;return false;}s.prog=Math.min(lim,s.prog+0.8*workMul(o));if(s.prog>=s.tot-1e-6&&lim>=s.tot-1e-6)finishSite(bb);})];
+ p.q=[GO(sp[0],sp[1]),...cyc(),...cyc(),...cyc(),...cyc(),...cyc(),FN(o=>{o.help=0;})];p.act='padeda statyti';return true;}
 function finishSite(b){const s=b.site;b.lv=s.to;b.st='ok';b.site=null;const ns=B[b.t].size[b.lv-1];if(ns!=b.s){markB(b,0);b.s=ns;markB(b,b.id);}markB(b,b.id);
- for(const p of S.p)if(p.role==b.id)p.role=0;reveal(b.x+b.s/2,b.y+b.s/2,B[b.t].rev+b.lv);toast((b.lv>1?'Patobulinta: ':'Pastatyta: ')+B[b.t].lv[b.lv-1]);save();}
+ for(const p of S.p){if(p.role==b.id)p.role=0;if(p.help==b.id)p.help=0;}reveal(b.x+b.s/2,b.y+b.s/2,B[b.t].rev+b.lv);toast((b.lv>1?'Patobulinta: ':'Pastatyta: ')+B[b.t].lv[b.lv-1]);save();}
 function carrierTask(p){
- for(const b of S.b){if(!b.site)continue;const s=b.site;for(const r of['m','a','l']){const want=(s.need[r]||0)-(s.got[r]||0)-(s.inb[r]||0);if(want<=0||avail(r)<1)continue;
+ for(const b of S.b){if(!b.site||!siteOK(b))continue;const s=b.site;for(const r of['m','a','l']){const want=(s.need[r]||0)-(s.got[r]||0)-(s.inb[r]||0);if(want<=0||avail(r)<1)continue;
   const st=srcFor(r,p.x,p.y,Math.min(want,4));if(!st)continue;const n=Math.min(want,p.sex=='m'?5:4,Math.floor(r=='m'&&st.t=='malkine'?st.mk:S.res[r]));if(n<1)continue;s.inb[r]+=n;p.res={k:'inb',b:b.id,r,n};
   p.q=[toB(st),FN(o=>{const g=takeAt(st,r,n);if(!g)return false;o.carry={k:r,n:g,site:1};}),toB(b),FN(o=>{const bb=bId(b.id);release(o);if(bb&&bb.site&&o.carry){bb.site.got[r]=Math.min(bb.site.need[r],bb.site.got[r]+o.carry.n);}else if(o.carry)deposit(r,o.carry.n);o.carry=null;})];p.act='neša '+RN[r];return true;}}
  return false;}
@@ -245,10 +272,13 @@ function farmJob(p,b,m){const f=b.f||(b.f={st:0,sow:0,g:0,cut:0});const W=S.p.fi
  const l=f.st==1?'laukia, kol užaugs javai':p.sex=='m'?'laukia, kol moterys pasės':'laukia pjūties';p.q=[toB(b),WAIT(5,l,1)];p.act=l;return true;}
 function herdN(b){const h=b.herd||(b.herd={c:2,s:3});return h.c+h.s;}
 function herdCap(b){return 4+2*b.lv;}
+// v11: wool cap – brief said both "10 + 4*(houses lv>=3)" and "max(10, 4*count)"; using max(10, 4 × houses at level ≥3)
+function woolCap(){return Math.max(10,4*S.b.filter(b=>b.t=='namas'&&b.lv>=3).length);}
+function woolFull(){return (S.res.v||0)>=woolCap();}
 function herdJob(p,b,m){const h=b.herd||(b.herd={c:2,s:3});const W=S.p.filter(q=>q.job==b.id);const hasF=W.some(q=>q.sex=='f');const ft=fieldTiles(b)[(p.id+Math.floor(S.t/7))%5],sp=fieldSpot(b,(p.id+Math.floor(S.t/7))%5);
- if(p.sex=='f'||!hasF){if((b.vb||0)>=4){const n=Math.floor(b.vb);p.q=[toB(b),FN(o=>{const bb=bId(b.id);if(!bb)return false;const g=Math.floor(bb.vb||0);bb.vb-=g;o.carry={k:'v',n:g};}),FN(o=>{const s=nearest(stores(),o.x,o.y);if(s)o.q.unshift(toB(s),FN(z=>{if(z.carry)deposit('v',z.carry.n);z.carry=null;}));})];p.act='neša vilną';return true;}
-  p.q=[GO(sp[0],sp[1]),FN(o=>{face(o,ft[0]+.5,ft[1]+.5);}),WAIT(7/m,'šeria gyvulius'),FN(o=>{const bb=bId(b.id);if(!bb)return;const hh=bb.herd;bb.vb=(bb.vb||0)+Math.max(hh.s?1:0,Math.floor(hh.s/2));if(herdN(bb)<herdCap(bb)&&R()<0.3){if(R()<.55)hh.s++;else hh.c++;bb.an=null;}})];p.act='šeria gyvulius';return true;}
- const min=3+b.lv;if(herdN(b)>min){p.q=[toB(b),FN(o=>{const bb=bId(b.id);if(!bb)return false;const hh=bb.herd;if(herdN(bb)<=3+bb.lv)return false;let n;if(hh.c>2&&(hh.c>=hh.s/2||hh.s<=2)){hh.c--;n=8;}else{hh.s--;n=4;}bb.an=null;o.meat=n;}),WAIT(6/m,'skerdžia gyvulį tvarte',1),FN(o=>{o.carry={k:'mesa',n:o.meat||4};o.meat=0;}),
+ if(p.sex=='f'||!hasF){const wf=woolFull();if(wf&&herdN(b)>=herdCap(b)&&p.sex=='f')return false;if(!wf&&(b.vb||0)>=4){const n=Math.floor(b.vb);p.q=[toB(b),FN(o=>{const bb=bId(b.id);if(!bb)return false;const g=Math.floor(bb.vb||0);bb.vb-=g;o.carry={k:'v',n:g};}),FN(o=>{const s=nearest(stores(),o.x,o.y);if(s)o.q.unshift(toB(s),FN(z=>{if(z.carry)deposit('v',z.carry.n);z.carry=null;}));})];p.act='neša vilną';return true;}
+  p.q=[GO(sp[0],sp[1]),FN(o=>{face(o,ft[0]+.5,ft[1]+.5);}),WAIT(7/m,'šeria gyvulius'),FN(o=>{const bb=bId(b.id);if(!bb)return;const hh=bb.herd;if(!woolFull())bb.vb=(bb.vb||0)+Math.max(hh.s?1:0,Math.floor(hh.s/2));if(herdN(bb)<herdCap(bb)&&R()<0.3){if(R()<.55)hh.s++;else hh.c++;bb.an=null;}})];p.act='šeria gyvulius';return true;}
+ const min=3+b.lv;if(herdN(b)>min){p.q=[toB(b),FN(o=>{const bb=bId(b.id);if(!bb)return false;const hh=bb.herd;if(herdN(bb)<=3+bb.lv)return false;let n;if(woolFull()?(hh.s<=1&&hh.c>1):(hh.c>2&&(hh.c>=hh.s/2||hh.s<=2))){hh.c--;n=8;}else{hh.s--;n=4;}bb.an=null;o.meat=n;}),WAIT(6/m,'skerdžia gyvulį tvarte',1),FN(o=>{o.carry={k:'mesa',n:o.meat||4};o.meat=0;}),
   FN(o=>{const s=nearest(stores(),o.x,o.y);if(s&&o.carry)o.q.unshift(toB(s),FN(z=>{if(z.carry)deposit('mesa',z.carry.n);z.carry=null;}));})];p.act='skerdžia gyvulį tvarte';return true;}
  p.q=[toB(b),WAIT(6,'tvarko tvartą',1)];p.act='tvarko tvartą';return true;}
 function isTree(o){return o.k=='pusis'||o.k=='pusys'||o.k=='azuolas'||o.k=='berzas';}
@@ -261,7 +291,7 @@ function fishSpot(b){let best=null,bd=1e9;for(let y=b.y-5;y<b.y+b.s+5;y++)for(le
 // ---------- jobs assignment ----------
 function sxOf(t){return B[t].sx||(t=='zolininke'?'any':'m');}
 function slots(){const out=[];for(const c of S.prio){
- if(c=='statyba'){for(const b of S.b)if(b.site&&!S.p.some(p=>p.role==b.id))out.push({c,b,builder:1,sx:'m'});}
+ if(c=='statyba'){for(const b of S.b)if(b.site&&siteOK(b)&&!S.p.some(p=>p.role==b.id))out.push({c,b,builder:1,sx:'m'});}
  else{for(const b of S.b){const d=B[b.t];if(d.cat!=c||b.st=='site'||!b.lv||b.st=='demo')continue;const W=S.p.filter(p=>p.job==b.id),n=d.wk[b.lv-1];const sx=sxOf(b.t);
   if(sx=='mf'){const nf=Math.ceil(n/2),nm=n-nf;for(let i=W.filter(p=>p.sex=='f').length;i<nf;i++)out.push({c,b,sx:'f'});for(let i=W.filter(p=>p.sex=='m').length;i<nm;i++)out.push({c,b,sx:'m'});}
   else for(let i=W.length;i<n;i++)out.push({c,b,sx});}
@@ -323,6 +353,12 @@ function isNight(){const t=tod();return t>=0.7&&t<0.93;}
 function untilDawn(){return Math.max(2,(0.95-tod())*DAY);}
 function reserveOf(b){return b.s;}
 function inReserve(X,Y,skip){return null;}
+// v11: cancel an unfinished construction / upgrade – all delivered materials go back to the store
+function cancelSite(b){const s=b.site;if(!s)return;for(const p of S.p){if(p.role==b.id)p.role=0;if(p.help==b.id){p.help=0;abort(p);}if(p.res&&p.res.k=='inb'&&p.res.b==b.id)abort(p);}
+ const g=s.got;if(g.m)deposit('m',g.m);if(g.a)deposit('a',g.a);if(g.l)deposit('l',g.l);
+ if(b.lv>0){b.site=null;b.st='ok';toast('Tobulinimas atšauktas – grąžinta '+costTxt(g));}
+ else{const i=S.b.indexOf(b);if(i>=0)S.b.splice(i,1);markB(b,0);rebuildGrids();for(const p of S.p){if(p.home==b.id){p.home=0;}if(p.job==b.id)p.job=0;}if(sel==b.id)closePop();toast('Statyba atšaukta'+(sum(g)?' – grąžinta '+costTxt(g):''));}
+ save();}
 function demolish(b){if(b.t=='sandelis'&&stores().length<=1){toast('Negalima griauti vienintelio sandėlio');return;}b.demo=6+4*Math.max(1,b.lv);b.st='demo';b.site=null;for(const p of S.p){if(p.job==b.id){p.job=0;abort(p);}if(p.role==b.id)p.role=0;}toast('Griovimas pradėtas – gyventojai išardys pastatą');save();}
 function finishDemo(b){let m=0,a=0,lt=0;for(let l=0;l<Math.max(1,b.lv);l++){const c=B[b.t].cost[l];m+=c.m||0;a+=c.a||0;lt+=c.l||0;}m=Math.floor(m/2)+Math.floor(b.mk||0);a=Math.floor(a/2);lt=Math.floor(lt/2);if(lt)deposit('l',lt);if(b.vb)deposit('v',Math.floor(b.vb));
  const i=S.b.indexOf(b);if(i>=0)S.b.splice(i,1);markB(b,0);rebuildGrids();
@@ -338,7 +374,7 @@ function demoDispatch(){for(const b of S.b){if(b.st!='demo')continue;const cur=S
  for(const p of S.p)if(p.dem&&!bId(p.dem))p.dem=0;}
 function meals(h){return (h.pan||0)+(h.dry||0);}
 function eat(o){const hh=home(o);if(hh&&hh.pan>=1){hh.pan-=1;o.hu=0;}else if(hh&&hh.dry>=1){hh.dry-=1;o.hu=40;}else o.hu=Math.min(o.hu,85);}
-function face(p,x,y){const sx=(x-p.x)-(y-p.y);if(Math.abs(sx)>0.01)p.fl=sx>0?1:-1;}
+function face(p,x,y){const sx=(x-p.x)-(y-p.y),sy=(x-p.x)+(y-p.y);if(Math.abs(sx)>0.01)p.fl=sx>0?1:-1;if(Math.abs(sy)>0.01)p.bk=sy<0?1:0;}
 function beside(o){const c=[[o.x+1,o.y],[o.x,o.y+1],[o.x+1,o.y+1],[o.x-1,o.y],[o.x,o.y-1]];for(const[x,y]of c)if(inM(x,y)&&walk(x,y)&&!(objAt[idx(x,y)]&&isTree(objAt[idx(x,y)])))return[x,y];return[o.x,o.y];}
 function shootSpot(d,p){const dx=p.x-d.x,dy=p.y-d.y,l=Math.hypot(dx,dy)||1;for(const k of[3.5,3,2.5,2]){const x=Math.floor(d.x+dx/l*k),y=Math.floor(d.y+dy/l*k);if(inM(x,y)&&walk(x,y))return[x,y];}return[Math.floor(d.x),Math.floor(d.y)];}
 function hapCalc(b){let h=0;if(b.pan>=1)h+=30;else if(b.dry>=1)h+=18;else if(food()>=1)h+=10;if((b.water||0)>=1)h+=5;if(b.wood>0)h+=25;h+=(b.lv-1)*5;
@@ -359,13 +395,15 @@ function fireLoop(p){const ws=waterSrc(p),f=bId(p.fire);if(!ws||!f)return[WAIT(1
 function deerTick(dt){
  const alive=S.deer.filter(d=>!d.dead).length;if(alive<16&&R()<dt/(alive<6?6:20)){for(let k=0;k<60;k++){const x=(R()*N)|0,y=(R()*N)|0;const edge=objAt[idx(x,y)]&&isTree(objAt[idx(x,y)])||[[1,0],[-1,0],[0,1],[0,-1]].some(([a,c])=>{const o=inM(x+a,y+c)&&objAt[idx(x+a,y+c)];return o&&isTree(o);});if('fgp'.includes(terr(x,y))&&(edge||k>45)&&walk(x,y)&&!S.b.some(b=>Math.hypot(b.x-x,b.y-y)<6)){S.deer.push({x:x+.5,y:y+.5,tx:x+.5,ty:y+.5,w:0,fl:1});break;}}}
  for(const d of S.deer){if(d.st)continue;d.w-=dt;if(d.w<=0){const tx=d.x+rnd(-3,3),ty=d.y+rnd(-3,3);if(inM(tx|0,ty|0)&&walk(tx|0,ty|0)&&'fg'.includes(terr(tx|0,ty|0))){d.tx=tx;d.ty=ty;}d.w=rnd(4,10);}
-  const dx=d.tx-d.x,dy=d.ty-d.y,l=Math.hypot(dx,dy);if(l>0.05){const s=Math.min(l,0.6*dt);d.x+=dx/l*s;d.y+=dy/l*s;if(Math.abs(dx-dy)>.01)d.fl=dx-dy>0?1:-1;d.mv=1;}else d.mv=0;}}
+  const dx=d.tx-d.x,dy=d.ty-d.y,l=Math.hypot(dx,dy);if(l>0.05){const s=Math.min(l,0.6*dt);d.x+=dx/l*s;d.y+=dy/l*s;if(Math.abs(dx-dy)>.01)d.fl=dx-dy>0?1:-1;if(Math.abs(dx+dy)>.01)d.bk=dx+dy<0?1:0;d.mv=1;}else d.mv=0;}}
 // ---------- placement ----------
 // v9: trees on a new plot are cleared automatically (anyone working on them is released)
 function clearPlot(t,x,y){const s=B[t].size[0];for(let i=0;i<s;i++)for(let j=0;j<s;j++){const o=objAt[idx(x+i,y+j)];if(o&&o.k!='uola'){for(const p of S.p)if(p.tgt===o||(p.tgt&&p.tgt.x===o.x&&p.tgt.y===o.y))abort(p);removeObj(o);}}}
 function canPlace(t,x,y){const s=B[t].size[0];let water=false;
  for(let i=0;i<s;i++)for(let j=0;j<s;j++){const X=x+i,Y=y+j;if(!inM(X,Y))return 'Už žemėlapio ribų';if(!S.fog[idx(X,Y)])return 'Ši vieta dar neatrasta';
   const te=terr(X,Y);if(te=='w')return 'Trukdo vanduo';if(te=='u'||te=='c')return 'Trukdo kalnas';if(occ[idx(X,Y)])return 'Trukdo kitas pastatas';const o=objAt[idx(X,Y)];if(o&&o.k=='uola')return 'Trukdo didelė uola';if(BR.has(idx(X,Y)))return 'Trukdo tiltas';if(inReserve(X,Y))return 'Ši vieta rezervuota namo plėtrai';}
+ {const R0=reach();const fp=[];for(let i=0;i<s;i++)for(let j=0;j<s;j++){const k=idx(x+i,y+j);fp.push([k,occ[k]]);occ[k]=-1;}RCH=null;const R=reach();const okNew=reachB({x,y,s},R);const blk=S.b.find(b=>b.st!='demo'&&reachB(b,R0)&&!reachB(b,R));let lost=0;for(let k=0;k<N*N;k++)if(R0[k]&&!R[k])lost++;for(const[k,v]of fp)occ[k]=v;RCH=null;
+  if(!okNew)return 'Statybininkai čia neprieitų';if(blk)return 'Užtvertų kelią į '+B[blk.t].n.toLowerCase();if(lost>s*s+12)return 'Užtvertų praėjimą (pvz. tiltą) – dalis žemės taptų nepasiekiama';}
  if(B[t].mtn){let k=0;for(let i=0;i<s;i++)for(const[X,Y]of[[x+i,y-1],[x+i,y+s],[x-1,y+i],[x+s,y+i]])if(inM(X,Y)&&isMtn(X,Y))k++;if(k<1)return 'Skaldykla turi stovėti prie pat kalno ar uolos';}
  if(B[t].water){for(let i=-1;i<=s;i++)for(let j=-1;j<=s;j++){const X=x+i,Y=y+j;if(inM(X,Y)&&terr(X,Y)=='w')water=true;}if(!water)return 'Žvejo trobelė turi būti prie vandens';}
  return '';}
@@ -446,8 +484,8 @@ function render(){
   else if(k==3){const im=img(o.k);if(!im)continue;const[X,Y]=wpos(o.x,o.y);const w=TW*o.s,h=im.height*w/im.width;ctx.drawImage(im,X-w/2,Y+TH-h+TH*0.05*o.s,w,h);}
   else if(k==2)drawB(o,top);
   else if(k==1)drawP(o);
-  else if(k==5){const im=img(o.k);if(!im)continue;const[X,Y]=wpos(o.x,o.y);const w=TW*(o.k=='karve'?0.5:0.34),h=im.height*w/im.width;ctx.save();ctx.translate(X,Y+TH*0.15);if(o.fl<0)ctx.scale(-1,1);ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(0,0,w*0.4,w*0.12,0,0,7);ctx.fill();ctx.drawImage(im,-w/2,-h+(o.mv?Math.sin(S.t*7+o.x)*0.8:0),w,h);ctx.restore();}
-  else if(k==4){const im=img('elnias');if(!im)continue;const[X,Y]=wpos(o.x,o.y);const w=TW*0.42,h=im.height*w/im.width;ctx.save();ctx.translate(X,Y+TH*0.2);if(o.fl*DEERF<0)ctx.scale(-1,1);if(o.dead){ctx.rotate(-Math.min(1,(S.t-o.dead)*2.5)*1.45);}ctx.drawImage(im,-w/2,-h+(o.mv?Math.sin(S.t*8)*1:0),w,h);ctx.restore();}}
+  else if(k==5){if(!o.k)continue;const[X,Y]=wpos(o.x,o.y);drawAn(o,o.k,X,Y+TH*0.15,o.mv?S.t*7+o.x*3:null,0);}
+  else if(k==4){const[X,Y]=wpos(o.x,o.y);drawAn(o,'elnias',X,Y+TH*0.2,o.mv?S.t*8+o.x*3:null,o.dead?-Math.min(1,(S.t-o.dead)*2.5)*1.45:0);}}
  for(const b of S.b)if(b.t=='gyvuliai'&&b.lv&&b.st!='site'&&b.s<3)drawPen(b,1);
  for(const f of FX)f();FX.length=0;
  // fish ripples
@@ -522,8 +560,14 @@ function drawPen(b,front){const T=fieldTiles(b);if(!front){T.forEach(([x,y])=>{c
   ctx.fillStyle='#4a321c';for(let i=0;i<=n;i++){const X=A[0]+(Bp[0]-A[0])*i/n,Y=A[1]+(Bp[1]-A[1])*i/n;ctx.fillRect(X-1.5,Y-17,3,17);}}}
 function herdAnim(b){const h=b.herd||{c:0,s:0};const want=[];for(let i=0;i<h.c;i++)want.push('karve');for(let i=0;i<h.s;i++)want.push(R()<0?'':'avis');
  if(!b.an||b.an.length!=want.length){const T=fieldTiles(b);b.an=want.map((k,i)=>{const t=T[i%5];return{k,x:t[0]+.3+R()*.4,y:t[1]+.3+R()*.4,tx:0,ty:0,w:0,fl:1,mv:0};});}
- const T=fieldTiles(b),dt=0.016;for(const a of b.an){a.w-=dt;if(a.w<=0){const t=T[(R()*5)|0];a.tx=t[0]+.2+R()*.6;a.ty=t[1]+.2+R()*.6;a.w=rnd(3,8);}const dx=a.tx-a.x,dy=a.ty-a.y,l=Math.hypot(dx,dy);if(l>0.03){const sp=Math.min(l,0.25*dt);a.x+=dx/l*sp;a.y+=dy/l*sp;a.mv=1;if(Math.abs(dx-dy)>.01)a.fl=dx-dy>0?-1:1;}else a.mv=0;}
+ const T=fieldTiles(b),dt=0.016;for(const a of b.an){a.w-=dt;if(a.w<=0){const t=T[(R()*5)|0];a.tx=t[0]+.2+R()*.6;a.ty=t[1]+.2+R()*.6;a.w=rnd(3,8);}const dx=a.tx-a.x,dy=a.ty-a.y,l=Math.hypot(dx,dy);if(l>0.03){const sp=Math.min(l,0.25*dt);a.x+=dx/l*sp;a.y+=dy/l*sp;a.mv=1;if(Math.abs(dx-dy)>.01)a.fl=dx-dy>0?1:-1;if(Math.abs(dx+dy)>.01)a.bk=dx+dy<0?1:0;}else a.mv=0;}
  return b.an;}
+// v11: animals drawn from v14 walk atlases; SW/NE art, mirrored for SE/NW; phase-driven frames
+function drawAn(o,k,X,Y,ph,rot){const n=k+(o.bk?'_ne':'_sw'),M=VM[n],im=img('v_'+n);if(!im)return;const w=M[0]/VK,h=M[1]/VK;
+ ctx.save();ctx.translate(X,Y);ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(0,0,w*0.32,w*0.1,0,0,7);ctx.fill();
+ // sw art faces left, ne art faces right; o.fl>0 = moving screen-right
+ if(o.bk?o.fl<0:o.fl>0)ctx.scale(-1,1);if(rot)ctx.rotate(rot);const f=ph==null?M[4]:(Math.floor(ph/6.2832*8)%8+8)%8;
+ ctx.drawImage(im,f*M[0],0,M[0],M[1],-M[2]/VK,-M[3]/VK,w,h);ctx.restore();}
 function drawTree(o,im,X,Y,w,h){ctx.save();ctx.translate(X,Y);
  if(o.chop){const ph=(S.t*1.1+(o.ph||0))%1;if(ph>0.72&&ph<0.9)ctx.rotate(Math.sin((ph-0.72)*60)*0.035);}
  if(o.fallT!=null){const f=Math.min(1,(S.t-o.fallT)/1.1);ctx.rotate(-(o.fdir||1)*f*f*1.45);if(f>=1&&S.t-o.fallT<1.3){ctx.globalAlpha=1-(S.t-o.fallT-1.1)*4;}}
@@ -570,30 +614,27 @@ function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h
 function drawFire(b,d){const n=6,I=b.fire/100;for(let i=0;i<n;i++){const fx=d.x+d.w*(0.25+0.5*((i*0.37+0.1)%1)),fy=d.y+d.h*(0.35+0.25*((i*0.61)%1));const fl=Math.sin(S.t*12+i*2)*0.2+1,h=(18+30*I)*fl,w=h*0.5;
  const g=ctx.createRadialGradient(fx,fy-h*0.3,1,fx,fy-h*0.3,h*0.7);g.addColorStop(0,'rgba(255,240,150,.95)');g.addColorStop(0.4,'rgba(255,140,30,.85)');g.addColorStop(1,'rgba(200,40,10,0)');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(fx,fy-h*0.3,w,h*0.7,0,0,7);ctx.fill();}
  for(let i=0;i<5;i++){const ph=(S.t*0.4+i/5)%1;ctx.fillStyle=`rgba(60,55,55,${0.45*(1-ph)})`;ctx.beginPath();ctx.arc(d.x+d.w*0.5+Math.sin(ph*6+i)*10,d.y+d.h*0.3-ph*90,8+ph*22,0,7);ctx.fill();}}
-function drawP(p){let n;const work=!p.mv&&p.act;
- if(p.ch)n=p.sex=='m'?'berniukas':'mergaite';
- else if(p.sex=='m'){n=p.bucket?'vyras_kibiras':p.carry?({m:'vyras_malkos',woodh:'vyras_malkos',mesa:bId(p.job)&&bId(p.job).t=='gyvuliai'?'vyras':'medziotojas_elnias',zuvis:'vyras_zuvys',food:'vyras',a:'vyras',l:'statybininkas_lentos'}[p.carry.k]||'vyras'):p.role&&p.mv?'statybininkas_lentos':'vyras';}
- else n=p.carry?'moteris_krepsys':'moteris';
- const P=parts(n);if(!P)return;let[X,Y]=wpos(p.x,p.y);if(!p.mv&&p.tgt&&(p.act=='kerta medį'||p.act=='skaldo akmenį'||p.act=='skaldo uolą')){const[TX,TY]=wpos(p.tgt.x+.5,p.tgt.y+.5);X+=(TX-X)*0.22;Y+=(TY-Y)*0.22;}const tH=TW*VS*(p.ch?0.48:0.72)*(n=='medziotojas_elnias'?1.06:1),k=tH/P.h,h=tH,dw=TW*VS*(p.ch?0.25:0.33);
- ctx.save();ctx.translate(X,Y+TH*0.12);
+function drawP(p){const work=!p.mv&&p.act;
+ const base=p.ch?(p.sex=='m'?'vaikas':'mergaite'):p.sex=='m'?'vyras':'moteris',dn=base+(p.bk?'_ne':'_sw'),M=VM[dn],at=img('v_'+dn);if(!at)return;
+ let[X,Y]=wpos(p.x,p.y);if(!p.mv&&p.tgt&&(p.act=='kerta medį'||p.act=='skaldo akmenį'||p.act=='skaldo uolą')){const[TX,TY]=wpos(p.tgt.x+.5,p.tgt.y+.5);X+=(TX-X)*0.22;Y+=(TY-Y)*0.22;}
+ const fw=M[0]/VK,fh=M[1]/VK,tH=M[3]/VK,P={w:fw,h:tH,hip:tH*0.55,cx:fw/2},h=tH,dw=TW*VS*(p.ch?0.25:0.33);
+ ctx.save();ctx.translate(X,Y+TH*0.12);if(p.fade)ctx.globalAlpha=Math.max(0,1-p.fade);
  ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(0,-dw*0.04,dw*0.38,dw*0.15,0,0,7);ctx.fill();
- if(p.fl>0)ctx.scale(-1,1); // art faces left; flip when moving right
- ctx.scale(k,k);const ox=-P.w/2,oy=-P.h;
- const s=p.mv?Math.sin(p.ph):0,c=p.mv?Math.cos(p.ph):0;const A=n.startsWith('moteris')||n=='mergaite'?0.16:0.32;
- const bob=p.mv?-Math.abs(c)*P.h*0.022:0;
- // legs
- const hipX=ox+P.cx,hipY=oy+P.hip;
- ctx.save();ctx.translate(hipX,hipY+bob*0.5);ctx.rotate(A*s);ctx.drawImage(P.L,-P.cx,0);ctx.restore();
- ctx.save();ctx.translate(hipX,hipY+bob*0.5);ctx.rotate(-A*s);ctx.drawImage(P.R,0,0);ctx.restore();
- // body (sway + lean forward while walking)
- ctx.save();ctx.translate(hipX,hipY+bob);ctx.rotate((p.mv?-0.05:0)+s*0.03);
+ if(p.fl>0)ctx.scale(-1,1); // forward = -x
+ ctx.save();const fr=p.mv?(Math.floor(p.ph/6.2832*8)%8+8)%8:M[4];
  const working=!p.mv&&(p.act=='kerta medį'||p.act=='skaldo akmenį'||p.act=='skaldo uolą'||p.act=='pjauna javus'||p.act=='stato'||p.act=='griauna');let tA=0;
- if(working){const ph=(S.t*((p.act=='stato'||p.act=='griauna')?1.6:1.1)+(p.tgt&&p.tgt.ph||p.id*0.37))%1;tA=(p.act=='stato'||p.act=='griauna')?swingTool(ph,-1.3,0.55):swingTool(ph,-2.1,0.45);ctx.rotate(ph>0.7&&ph<0.8?-0.08:0.04);}
- ctx.drawImage(P.up,-P.cx,-P.hip);
- if(P.arms){const aa=p.mv?0.2*s:0;for(const a of P.arms){ctx.save();ctx.translate(-P.cx+a.px,-P.hip+a.py);ctx.rotate(a.f*aa);ctx.drawImage(a.c,a.x-a.px,a.y-a.py);ctx.restore();}}
- if(p.carry&&p.sex=='m'&&['g','mi','d','v','mesa','a'].includes(p.carry.k)){const k=p.carry.k,bx=P.w*0.3,by=-P.hip+P.h*0.3;// load on the back/shoulder, on the far shoulder, clear of the head so the face stays visible
-  if(k=='a'){ctx.fillStyle='#8d8a84';ctx.strokeStyle='#55524d';ctx.lineWidth=P.h*0.01;ctx.beginPath();ctx.ellipse(bx,by,P.w*0.15,P.w*0.11,0.5,0,7);ctx.fill();ctx.stroke();}
-  else{const c={g:'#d4b26a',mi:'#efe9da',d:'#b5763a',v:'#f2eee2',mesa:'#a8443a'}[k];ctx.fillStyle=c;ctx.strokeStyle='#5d4a30';ctx.lineWidth=P.h*0.008;ctx.beginPath();ctx.ellipse(bx,by,P.w*0.14,P.w*0.18,0.35,0,7);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(bx-P.w*0.06,by-P.w*0.22);ctx.lineTo(bx+P.w*0.02,by-P.w*0.3);ctx.stroke();}}
+ ctx.save();if(p.bk)ctx.scale(-1,1);ctx.drawImage(at,fr*M[0],0,M[0],M[1],-M[2]/VK,-M[3]/VK,fw,fh);ctx.restore();
+ ctx.translate(0,-tH+P.hip);
+ if(working){const ph=(S.t*((p.act=='stato'||p.act=='griauna')?1.6:1.1)+(p.tgt&&p.tgt.ph||p.id*0.37))%1;tA=(p.act=='stato'||p.act=='griauna')?swingTool(ph,-1.3,0.55):swingTool(ph,-2.1,0.45);}
+ // carried loads: held in the arms in front of the body (no shoulder blob)
+ if(p.carry&&!p.ch){const k=p.carry.k,L0=tH,cx=-P.w*0.12,cy=-P.hip+L0*0.5;ctx.lineWidth=L0*0.012;
+  if(k=='a'){ctx.fillStyle='#8d8a84';ctx.strokeStyle='#55524d';for(const[a,b,r]of[[-0.07,0,0.07],[0.03,0.01,0.06],[-0.02,-0.06,0.055]]){ctx.beginPath();ctx.ellipse(cx+a*L0,cy+b*L0,r*L0,r*L0*0.75,0.4,0,7);ctx.fill();ctx.stroke();}}
+  else if(k=='m'||k=='woodh'){for(let i=0;i<3;i++){const yy=cy-L0*0.03+i*L0*0.045;ctx.fillStyle='#8a5a2e';ctx.strokeStyle='#4a2e14';ctx.beginPath();ctx.rect(cx-L0*0.17,yy,L0*0.3,L0*0.04);ctx.fill();ctx.stroke();ctx.fillStyle='#d9b07a';ctx.beginPath();ctx.ellipse(cx-L0*0.17,yy+L0*0.02,L0*0.012,L0*0.02,0,0,7);ctx.fill();}}
+  else if(k=='l'){ctx.save();ctx.translate(cx,cy-L0*0.12);ctx.rotate(-0.35);ctx.fillStyle='#c79a5e';ctx.strokeStyle='#6b4a26';for(let i=0;i<2;i++){ctx.beginPath();ctx.rect(-L0*0.32,i*L0*0.035,L0*0.6,L0*0.03);ctx.fill();ctx.stroke();}ctx.restore();}
+  else if(k=='zuvis'){ctx.strokeStyle='#5b4a30';ctx.beginPath();ctx.moveTo(cx,cy-L0*0.04);ctx.lineTo(cx,cy+L0*0.04);ctx.stroke();ctx.fillStyle='#9fb3bd';ctx.strokeStyle='#4d5d66';for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(cx+(i-1)*L0*0.05,cy+L0*0.1,L0*0.022,L0*0.07,0,0,7);ctx.fill();ctx.stroke();}}
+  else if(k=='mesa'&&!(bId(p.job)&&bId(p.job).t=='gyvuliai')){const da=img('v_elnias_sw'),DM=VM.elnias_sw;if(da){ctx.save();ctx.translate(cx,cy+L0*0.02);ctx.rotate(Math.PI/2);ctx.scale(0.55,0.55);ctx.drawImage(da,DM[4]*DM[0],0,DM[0],DM[1],-DM[2]/VK,-DM[3]/VK*0.6,DM[0]/VK,DM[1]/VK);ctx.restore();}}
+  else if(k=='food'&&p.sex=='f'||k=='v'&&p.sex=='f'){ctx.fillStyle='#a87a42';ctx.strokeStyle='#5d4020';ctx.beginPath();ctx.moveTo(cx-L0*0.11,cy);ctx.lineTo(cx+L0*0.11,cy);ctx.lineTo(cx+L0*0.08,cy+L0*0.13);ctx.lineTo(cx-L0*0.08,cy+L0*0.13);ctx.closePath();ctx.fill();ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,L0*0.1,Math.PI,0);ctx.stroke();ctx.fillStyle=k=='v'?'#f2eee2':'#c8783a';ctx.beginPath();ctx.ellipse(cx,cy,L0*0.1,L0*0.025,0,0,7);ctx.fill();}
+  else{const c={g:'#d4b26a',mi:'#efe9da',d:'#b5763a',v:'#f2eee2',mesa:'#a8443a',food:'#c8b089'}[k]||'#c8b089';ctx.fillStyle=c;ctx.strokeStyle='#5d4a30';ctx.beginPath();ctx.ellipse(cx,cy+L0*0.04,L0*0.09,L0*0.11,0,0,7);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(cx-L0*0.03,cy-L0*0.06);ctx.lineTo(cx+L0*0.03,cy-L0*0.09);ctx.stroke();}}
  const sh=[-P.w*0.16,-P.hip+P.h*0.36];// shoulder (forward = -x)
  const L=P.h;
  if(working){ctx.save();ctx.translate(sh[0],sh[1]);ctx.rotate(-tA);// tool pointing forward(-x) rotated
@@ -616,11 +657,9 @@ function drawP(p){let n;const work=!p.mv&&p.act;
   if(ph<0.6){ctx.strokeStyle='#8a6a3a';ctx.lineWidth=L*0.008;ctx.beginPath();ctx.moveTo(ex+L*0.12*pull,0);ctx.lineTo(ex+L*0.12*pull-L*0.3,0);ctx.stroke();}
   ctx.fillStyle='#e0b48c';ctx.beginPath();ctx.arc(-L*0.08,0,L*0.025,0,7);ctx.fill();ctx.restore();
   if(ph>=0.6&&p.tgt){const f=(ph-0.6)/0.4,[DX,DY]=wpos(p.tgt.x,p.tgt.y);const sx=X,sy=Y-h*0.6,ex2=DX,ey2=DY-TH*0.1;FX.push(()=>{const ax=sx+(ex2-sx)*f,ay=sy+(ey2-sy)*f-Math.sin(f*Math.PI)*12,an=Math.atan2(ey2-sy,ex2-sx);ctx.save();ctx.translate(ax,ay);ctx.rotate(an);ctx.strokeStyle='#6b4a2a';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-10,0);ctx.lineTo(4,0);ctx.stroke();ctx.restore();});}}
- if(p.wb||(!p.mv&&p.act=='semia vandenį')){const bx=-P.w*0.32,by=-P.hip+P.h*0.62+(p.mv?s*L*0.01:0);ctx.strokeStyle='#4a3420';ctx.lineWidth=L*0.008;ctx.beginPath();ctx.arc(bx,by-L*0.02,L*0.05,Math.PI,0);ctx.stroke();ctx.fillStyle='#7a5532';ctx.beginPath();ctx.moveTo(bx-L*0.05,by-L*0.02);ctx.lineTo(bx+L*0.05,by-L*0.02);ctx.lineTo(bx+L*0.04,by+L*0.07);ctx.lineTo(bx-L*0.04,by+L*0.07);ctx.closePath();ctx.fill();ctx.strokeStyle='#3e2a16';ctx.stroke();if(p.wb){ctx.fillStyle='#6fb6d6';ctx.beginPath();ctx.ellipse(bx,by-L*0.02,L*0.048,L*0.012,0,0,7);ctx.fill();}}
- if(p.carry&&(p.carry.k=='woodh'||p.carry.k=='m')&&p.sex=='f'&&!p.ch){ctx.save();ctx.translate(0,-P.hip+P.h*0.2);ctx.rotate(-0.25);ctx.fillStyle='#8a5a2e';ctx.strokeStyle='#4a2e14';ctx.lineWidth=L*0.008;for(let i=0;i<2;i++){ctx.beginPath();ctx.rect(-P.w*0.55,i*L*0.045-L*0.02,P.w*1.1,L*0.042);ctx.fill();ctx.stroke();ctx.fillStyle='#d9b07a';ctx.beginPath();ctx.ellipse(-P.w*0.55,i*L*0.045+L*0.001,L*0.012,L*0.021,0,0,7);ctx.fill();ctx.fillStyle='#8a5a2e';}ctx.restore();}
+ if(p.wb||p.bucket||(!p.mv&&p.act=='semia vandenį')){const bx=-P.w*0.32,by=-P.hip+P.h*0.62+(p.mv?Math.sin(p.ph||0)*L*0.01:0);ctx.strokeStyle='#4a3420';ctx.lineWidth=L*0.008;ctx.beginPath();ctx.arc(bx,by-L*0.02,L*0.05,Math.PI,0);ctx.stroke();ctx.fillStyle='#7a5532';ctx.beginPath();ctx.moveTo(bx-L*0.05,by-L*0.02);ctx.lineTo(bx+L*0.05,by-L*0.02);ctx.lineTo(bx+L*0.04,by+L*0.07);ctx.lineTo(bx-L*0.04,by+L*0.07);ctx.closePath();ctx.fill();ctx.strokeStyle='#3e2a16';ctx.stroke();if(p.wb){ctx.fillStyle='#6fb6d6';ctx.beginPath();ctx.ellipse(bx,by-L*0.02,L*0.048,L*0.012,0,0,7);ctx.fill();}}
  if(!p.mv&&(p.act=='sėja grūdus'||p.act=='šeria gyvulius')){const ph=(S.t*0.9+p.id*0.3)%1;ctx.save();ctx.translate(sh[0],sh[1]);ctx.rotate(-(ph<0.5?-0.4+ph*2:0.6-(ph-0.5)*2));ctx.fillStyle='#e0b48c';ctx.beginPath();ctx.arc(-L*0.18,0,L*0.025,0,7);ctx.fill();ctx.restore();
   if(ph>0.45&&ph<0.85){const f=(ph-0.45)/0.4;ctx.fillStyle=p.act=='sėja grūdus'?'#e8d27a':'#b9c46a';for(let i=0;i<5;i++)ctx.fillRect(sh[0]-L*0.25-f*L*0.25-i*L*0.02,sh[1]+f*L*0.35+i*L*0.015,L*0.012,L*0.012);}}
- if(p.carry&&p.carry.k=='food'&&p.sex=='m'){ctx.fillStyle='#c8b089';ctx.strokeStyle='#6d5a3a';ctx.lineWidth=L*0.008;ctx.beginPath();ctx.ellipse(P.w*0.02,-P.hip+P.h*0.2,P.w*0.25,P.w*0.2,0.2,0,7);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(P.w*0.12,-P.hip+P.h*0.12);ctx.lineTo(P.w*0.2,-P.hip+P.h*0.08);ctx.stroke();}
  ctx.restore();ctx.restore();
  if(p.sick&&!p.in){ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('🤒',X,Y-h);}}
 
@@ -636,15 +675,15 @@ function updRoad(){$('bmText').textContent=roadMode.del?`🧹 Kelio šalinimas: 
 function endRoad(){roadMode=null;$('bmNo').textContent='✕ Atšaukti';$('bmOk').textContent='✔ Statyti';$('buildbar').classList.remove('hidden');$('buildmode').classList.add('hidden');save();}
 function roadAt(tx,ty){tx|=0;ty|=0;if(!inM(tx,ty))return;const i=idx(tx,ty);
  if(roadMode.del){if(RD.has(i)){RD.delete(i);S.roads=[...RD];S.rdRef=(S.rdRef||0)+0.5;const g=Math.floor(S.rdRef);if(g>0){S.rdRef-=g;S.res.a+=g;}}return;}
- if(RD.has(i))return;if(!S.fog[i]){roadMode.err='Ši vieta dar neatrasta';return;}const te=terr(tx,ty);if(!'gpf'.includes(te)||BR.has(i)){roadMode.err='Čia kelio nutiesti negalima';return;}if(occ[i]){roadMode.err='Čia stovi pastatas';return;}const o=objAt[i];if(o&&o.k!='kelmas'){roadMode.err=isTree(o)?'Čia auga medis':'Čia guli akmenys';return;}
- if(S.res.a<1){roadMode.err='Trūksta akmens (reikia 1 🪨)';return;}S.res.a-=1;RD.add(i);S.roads=[...RD];if(o&&o.k=='kelmas')removeObj(o);}
+ if(RD.has(i))return;if(!S.fog[i]){roadMode.err='Ši vieta dar neatrasta';return;}const te=terr(tx,ty);if(!'gpf'.includes(te)||BR.has(i)){roadMode.err='Čia kelio nutiesti negalima';return;}if(occ[i]){roadMode.err='Čia stovi pastatas';return;}const o=objAt[i];if(o&&o.k=='uola'){roadMode.err='Trukdo didelė uola';return;}
+ if(S.res.a<1){roadMode.err='Trūksta akmens (reikia 1 🪨)';return;}S.res.a-=1;RD.add(i);S.roads=[...RD];if(o){for(const p of S.p)if(p.tgt===o||(p.res&&p.res.o===o)||(p.tgt&&p.tgt.x===o.x&&p.tgt.y===o.y))abort(p);removeObj(o);}}
 function startBuild(t){closePop();if(roadMode)endRoad();build={t,x:null,y:null};$('buildbar').classList.add('hidden');$('buildmode').classList.remove('hidden');
  const[a,b]=w2t(cam.x,cam.y);build.x=Math.floor(a)-(B[t].size[0]>>1);build.y=Math.floor(b)-(B[t].size[0]>>1);updBuild();}
 function updBuild(){const e=canPlace(build.t,build.x,build.y);$('bmText').textContent=e?('✖ '+e):`✔ ${B[build.t].n} – ${costTxt(B[build.t].cost[0])}. Bakstelėkite kitą vietą arba patvirtinkite.`;$('bmOk').disabled=!!e;}
 function endBuild(){if(roadMode){endRoad();return;}build=null;$('buildbar').classList.remove('hidden');$('buildmode').classList.add('hidden');}
 $('bmOk').onclick=()=>{if(roadMode){roadMode.del=!roadMode.del;updRoad();return;}if(!build)return;const e=canPlace(build.t,build.x,build.y);if(e){toast(e);return;}clearPlot(build.t,build.x,build.y);addB(build.t,build.x,build.y,0);toast('Statybvietė pažymėta – gyventojai patys atneš medžiagas ir pastatys');save();endBuild();};
 $('bmNo').onclick=endBuild;
-function jobTitle(p){if(p.ch)return 'vaikas';if(p.sick)return 'serga';if(p.fire)return 'gesina gaisrą';if(p.role)return 'statybininkas';const j=bId(p.job);if(j)return {malkine:'medkirtys',medziotojas:'medžiotojas',zvejas:'žvejys',zolininke:p.sex=='f'?'žolininkė':'žolininkas',skaldykla:'akmenskaldys',lentpjuve:'lentpjovys',ukis:p.sex=='f'?'sėjėja':'pjovėjas',gyvuliai:p.sex=='f'?'gyvulių šėrėja':'skerdikas',malunas:'malūnininkas',kepykla:'kepėja'}[j.t];if(p.sg)return 'akmenų rinkėjas';return p.sex=='f'?'šeimininkė':'nešikas';}
+function jobTitle(p){if(p.ch)return 'vaikas';if(p.sick)return 'serga';if(p.fire)return 'gesina gaisrą';if(p.role)return 'statybininkas';if(p.help)return 'padeda statyti';const j=bId(p.job);if(j)return {malkine:'medkirtys',medziotojas:'medžiotojas',zvejas:'žvejys',zolininke:p.sex=='f'?'žolininkė':'žolininkas',skaldykla:'akmenskaldys',lentpjuve:'lentpjovys',ukis:p.sex=='f'?'sėjėja':'pjovėjas',gyvuliai:p.sex=='f'?'gyvulių šėrėja':'skerdikas',malunas:'malūnininkas',kepykla:'kepėja'}[j.t];if(p.sg)return 'akmenų rinkėjas';return p.sex=='f'?'šeimininkė':'nešikas';}
 let popT=0;function popGuard(){return performance.now()-popT<600;}
 function openPop(b){if(sel!==b.id)popT=performance.now();sel=b.id;renderPop();$('pop').classList.remove('hidden');}
 function closePop(){sel=null;$('pop').classList.add('hidden');}
@@ -667,9 +706,10 @@ function renderPop(){const b=bId(sel);if(!b){closePop();return;}const d=B[b.t];l
  h+=`<div class="desc">${d.d}</div>`;
  if(b.lv&&b.lv<5&&b.st=='ok'){const e=canUpgrade(b);h+=`<button class="up" id="popUp" ${e?'disabled':''}>⬆ Tobulinti į ${b.lv+1} lygį: ${d.lv[b.lv]}<br><small>${costTxt(d.cost[b.lv])}${d.cap?` · ${d.cap[b.lv]} gyventojai`:''}${d.wk?` · ${d.wk[b.lv]} darbininkai`:''}${e?' · '+e:''}</small></button>`;}
  else if(b.lv==5)h+=`<div class="row">⭐ Aukščiausias lygis</div>`;
+ if(b.site)h+=`${siteOK(b)?'':'<div class="row warn">⚠ Statybininkai negali prieiti prie statybvietės</div>'}<div class="demorow"><button class="demo" id="popCancel">✖ Atšaukti ${b.lv?'tobulinimą':'statybą'}</button></div>`;
  if(b.st=='demo')h+=`<div class="row warn">⛏ Griaunama… liko ${Math.max(0,Math.ceil(b.demo))} darbo s.</div>`;
  else if(b.st=='ok'&&!b.fire)h+=`<div class="demorow"><button class="demo" id="popDemo" title="Grąžins apie pusę medžiagų į sandėlį">🔨 Griauti</button></div>`;
- $('pop').innerHTML=h;$('popX').onclick=closePop;const u=$('popUp');if(u)u.onclick=()=>{if(popGuard())return;upgrade(b);renderPop();};const dm=$('popDemo');if(dm)dm.onclick=e=>{e.preventDefault();e.stopPropagation();if(popGuard())return;const r=S.p.filter(p=>p.home==b.id).length;let free=0;for(const q of S.b)if(q!==b&&q.t=='namas'&&q.lv&&q.st!='demo')free+=Math.max(0,B.namas.cap[q.lv-1]-S.p.filter(z=>z.home==q.id).length);
+ $('pop').innerHTML=h;$('popX').onclick=closePop;const u=$('popUp');if(u)u.onclick=()=>{if(popGuard())return;upgrade(b);renderPop();};const cn=$('popCancel');if(cn)cn.onclick=e=>{e.preventDefault();e.stopPropagation();if(popGuard())return;const g=b.site.got;if(confirm(`Atšaukti ${b.lv?'tobulinimą':'statybą'}?`+(sum(g)?`\n\nAtneštos medžiagos bus grąžintos į sandėlį: ${costTxt(g)}`:''))){cancelSite(b);if(bId(b.id))renderPop();}};const dm=$('popDemo');if(dm)dm.onclick=e=>{e.preventDefault();e.stopPropagation();if(popGuard())return;const r=S.p.filter(p=>p.home==b.id).length;let free=0;for(const q of S.b)if(q!==b&&q.t=='namas'&&q.lv&&q.st!='demo')free+=Math.max(0,B.namas.cap[q.lv-1]-S.p.filter(z=>z.home==q.id).length);
   if(confirm(`Ar tikrai griauti „${d.n}“?`+(r?(free>=r?`\n\n⚠ Šeima liks be namų! Gyventojai (${r}) persikels į kitą laisvą namą.`:`\n\n⚠ Šeima liks be namų! Kituose namuose vietos yra tik ${free} iš ${r} – kiti gyvens lauke, kol atsiras vietos.`):'')+'\n\nBus grąžinta apie pusė medžiagų.')){demolish(b);renderPop();}};}
 function renderPrio(){const l=$('prioList');l.innerHTML='';S.prio.forEach((c,i)=>{const n=S.p.filter(p=>catOf(p)==c).length;const e=document.createElement('div');e.className='prow';e.innerHTML=`<b>${i+1}.</b> ${CATN[c]} <small>(${n} dirba)</small><span><button data-i="${i}" data-d="-1">▲</button><button data-i="${i}" data-d="1">▼</button></span>`;l.appendChild(e);});
  l.querySelectorAll('button').forEach(bt=>bt.onclick=()=>{const i=+bt.dataset.i,j=i+ +bt.dataset.d;if(j<0||j>=S.prio.length)return;[S.prio[i],S.prio[j]]=[S.prio[j],S.prio[i]];renderPrio();save();});}
@@ -725,11 +765,12 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){save();pau
 addEventListener('pagehide',save);addEventListener('resize',resize);
 function centerStart(){const st=S.b.find(b=>b.t=='sandelis')||{x:44,y:40};const[X,Y]=wpos(st.x+1,st.y);cam={x:X,y:Y,z:0.45};}
 Object.assign(window,{nearTrees,saveGame:save,isTree,startBuild,updBuild,endBuild,darkness,openPop,demolish,inM,terr,__bld:()=>build});window.__dbg={get S(){return S},grow3,rebuildGrids,load,speed:k=>speed=k,tick:(sec)=>{for(let i=0;i<sec*10;i++)tick(0.1);},fps:()=>fps,cam:()=>cam,setCam:(x,y,z)=>{const[X,Y]=wpos(x,y);cam={x:X,y:Y,z:z||cam.z};},
- place:(t,x,y)=>{const e=canPlace(t,x,y);if(e)return e;clearPlot(t,x,y);addB(t,x,y,0);return 'ok';},canPlace,upgrade:id=>upgrade(bId(id)),save,load,fire:id=>{const b=bId(id);b.fire=30;},sick:id=>{const p=S.p.find(q=>q.id==id);p.sick=DAY*2;abort(p);},reveal,openPop:id=>openPop(bId(id)),startBuild,tap,roadAt:(x,y)=>{roadMode=roadMode||{del:false};roadAt(x,y);},spawnP,startRoad,get RD(){return RD},finish:id=>{const b=bId(id);if(b.site)finishSite(b);},w2s:(x,y)=>{const[X,Y]=wpos(x,y);return[(X-cam.x)*cam.z+W/2,(Y-cam.y)*cam.z+H/2];}};
+ place:(t,x,y)=>{const e=canPlace(t,x,y);if(e)return e;clearPlot(t,x,y);addB(t,x,y,0);return 'ok';},canPlace,cancelSite:id=>cancelSite(bId(id)),addB:(t,x,y)=>addB(t,x,y,0),upgrade:id=>upgrade(bId(id)),save,load,fire:id=>{const b=bId(id);b.fire=30;},sick:id=>{const p=S.p.find(q=>q.id==id);p.sick=DAY*2;abort(p);},reveal,openPop:id=>openPop(bId(id)),startBuild,tap,roadAt:(x,y)=>{roadMode=roadMode||{del:false};roadAt(x,y);},spawnP,startRoad,get RD(){return RD},finish:id=>{const b=bId(id);if(b.site)finishSite(b);},w2s:(x,y)=>{const[X,Y]=wpos(x,y);return[(X-cam.x)*cam.z+W/2,(Y-cam.y)*cam.z+H/2];}};
 fetch('map.json').then(r=>r.json()).then(m=>{MAP=m;N=m.N;TER=m.T;WW=N*TW;HH=N*TH;
  for(let x=0;x<N;x++)if(TER[44][x]=='w'&&x>25&&x<40)BR.add(idx(x,44));
  resize();buildMenu();if(!load()){newGame();centerStart();}clampCam();
- for(const t of ['vyras','moteris','berniukas','mergaite','vyras_malkos','vyras_zuvys','vyras_kibiras','medziotojas_elnias','statybininkas_lentos','moteris_krepsys','elnias','statybviete','gora','uolynas','pusis','pusys','azuolas','berzas','krumas','akmenys','uola','kelmas','karve','avis'])img(t);
+ for(const t in VM)img('v_'+t);
+ for(const t of ['statybviete','gora','uolynas','pusis','pusys','azuolas','berzas','krumas','akmenys','uola','kelmas'])img(t);
  for(const t of ORDER)for(const s of B[t].spr)img(s);
  $('loading').remove();requestAnimationFrame(frame);});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
