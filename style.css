@@ -31,3 +31,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:#161a20;font-family:-a
 .demorow{display:flex;justify-content:flex-end;margin-top:14px}.demorow .demo{background:#a5503a;color:#fff;border:0;border-radius:8px;padding:5px 10px;font-size:12px;width:auto}
 
 .res.three{margin-top:5px;font-size:14px;justify-content:flex-start;gap:12px}
+
+#btabs{display:flex;gap:5px;overflow-x:auto;padding:2px 2px 0;scrollbar-width:none}#btabs::-webkit-scrollbar{display:none}
+.btab{flex:0 0 auto;min-height:38px;padding:6px 12px;font:inherit;font-size:14px;font-weight:600;color:#3a2614;background:#e8d3a6;border:2px solid #7a5428;border-radius:10px 10px 4px 4px;box-shadow:0 2px 4px #0005}
+.btab.on{background:#fff3d6;border-color:#4d3218}
+#bottom:has(#buildbar.hidden) #btabs{display:none}
+#era{margin-top:6px;background:#3b2a1ae8;color:#ffeccb;border:2px solid #7a5428;border-radius:10px;padding:5px 9px;font-size:13px;display:flex;flex-direction:column;gap:2px;pointer-events:auto}
+#era span{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}#era i{font-style:normal;opacity:.9}#era i.ok{color:#9fe07a}
