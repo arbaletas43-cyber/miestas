@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const TW=96,TH=48,DAY=180,VER=1,DEERF=1;const FX=[];
+const TW=96,TH=48,VS=0.55,/* v7: villagers scaled so a door ≈ villager height on the 3×3 plots */DAY=180,VER=1,DEERF=1;const FX=[];
 let MAP,N,TER,WW,HH;
 const $=id=>document.getElementById(id);
 const cv=$('cv'),ctx=cv.getContext('2d');
@@ -9,19 +9,19 @@ const IM={};
 function img(n){let i=IM[n];if(!i){i=new Image();i.src='img/'+n+'.webp';IM[n]=i;}return i.complete&&i.naturalWidth?i:null;}
 // ---------- definitions ----------
 const B={
- namas:{n:'Gyvenamasis namas',ic:'🏠',lv:['Šiaudinė troba','Medinis namas','Namas su akmeniniu pamatu','Mūrinis namas','Dviaukštis miestiečio namas'],size:[1,2,2,2,2],cap:[2,4,6,8,10],spr:['l1_gyvenamasis_namas','namas_2','namas_3','namas_4','namas_5'],cost:[{m:10},{m:20},{m:25,a:15},{m:30,a:30},{m:40,a:50}],rev:6,d:'Čia gyvena šeima. Moterys parneša maisto ir malkų, gamina valgį.'},
- malkine:{n:'Malkinė',ic:'🪓',cat:'mediena',lv:['Malkų stoginė','Medkirčio trobelė','Medkirčių stovykla','Medienos dirbtuvės','Didžioji lentpjūvė'],size:[2,2,2,2,2],wk:[1,2,3,4,4],spr:['l1_malkine','malkine_2','malkine_3','malkine_4','malkine_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:7,d:'Medkirčiai kerta medžius ir neša malkas į sandėlį. Nuo pirmo lygio patys sodina naujus medžius, o kai aplink medžių nebelieka – eina kirsti toliau.'},
- sulinys:{n:'Šulinys',ic:'💧',lv:['Paprastas šulinys','Šulinys su stogeliu','Šulinys su loviu','Šulinys su skridiniu','Akmeninis fontanas'],size:[1,1,1,1,1],spr:['l1_sulinys','sulinys_2','sulinys_3','sulinys_4','sulinys_5'],cost:[{m:8,a:4},{m:10,a:8},{m:12,a:15},{m:15,a:25},{m:20,a:35}],rad:[6,7,8,9,10],rev:5,d:'Namai netoli šulinio laimingesni. Iš šulinio nešamas vanduo gaisrams gesinti.'},
- sandelis:{n:'Sandėlis',ic:'📦',lv:['Rąstinis sandėlis','Didesnis sandėlis','Daržinė','Mūrinis sandėlis','Didysis sandėlis'],size:[3,3,3,3,3],scap:[100,160,240,350,500],spr:['l1_sandelis','sandelis_2','sandelis_3','sandelis_4','sandelis_5'],cost:[{m:30},{m:40},{m:50,a:20},{m:60,a:40},{m:80,a:60}],rev:9,d:'Čia laikomi visi ištekliai.'},
- medziotojas:{n:'Medžiotojo namelis',ic:'🦌',cat:'maistas',lv:['Medžiotojo trobelė','Medžiotojo namelis','Namelis su rūkykla','Medžiotojų namas','Medžioklės sodyba'],size:[2,2,2,2,2],wk:[1,1,2,2,3],spr:['l1_medziotojo_namelis','medziotojas_2','medziotojas_3','medziotojas_4','medziotojas_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:7,d:'Medžiotojai medžioja elnius miške ir parneša mėsos.'},
- zvejas:{n:'Žvejo trobelė',ic:'🐟',cat:'maistas',water:1,lv:['Žvejo trobelė','Žvejo namelis','Žuvų džiovykla','Žvejų namas ant polių','Didžioji žvejų sodyba'],size:[2,2,2,2,2],wk:[1,1,2,2,3],spr:['l1_zvejo_trobele','zvejas_2','zvejas_3','zvejas_4','zvejas_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:7,d:'Statoma prie vandens. Žvejai gaudo žuvį.'},
- skaldykla:{n:'Akmens skaldykla',ic:'⛏',cat:'akmuo',sx:'m',mtn:1,lv:['Skaldytojų urvas','Skaldykla su pastoge','Skaldykla su bėgiais','Akmentašių dirbtuvės','Didžioji skaldykla'],size:[2,2,2,2,2],wk:[1,2,2,3,4],spr:['skaldykla_1','skaldykla_2','skaldykla_3','skaldykla_4','skaldykla_5'],cost:[{m:20},{m:25,a:5},{m:30,a:15},{m:40,a:25},{m:50,a:40}],rev:6,d:'Statoma kalno ar uolos papėdėje. Vyrai nuolat skaldo uolą ir neša akmenis į sandėlį.'},
- lentpjuve:{n:'Lentpjūvė',ic:'🪚',cat:'mediena',sx:'m',lv:['Pjovėjų pastogė','Lentpjūvės stoginė','Lentpjūvė ant pamato','Lentpjūvė su vandens ratu','Didžioji lentpjūvė'],size:[2,2,2,2,2],wk:[1,1,2,2,3],spr:['lentpjuve_1','lentpjuve_2','lentpjuve_3','lentpjuve_4','lentpjuve_5'],cost:[{m:25},{m:30,a:10},{m:35,a:20},{m:45,a:30},{m:55,a:45}],rev:6,d:'Vyrai parsineša malkų iš malkinės ir supjauna jas į lentas. Lentų reikia pastatams tobulinti nuo 3 lygio.'},
- ukis:{n:'Ūkis',ic:'🌾',cat:'maistas',sx:'mf',fld:1,lv:['Klėtelė su lauku','Kluonas su lauku','Klėtis ant pamato','Ūkis su džiovykla','Didysis ūkis'],size:[3,3,3,3,3],wk:[2,2,3,4,4],spr:['ukis_1','ukis_2','ukis_3','ukis_4','ukis_5'],cost:[{m:25},{m:30,a:10},{m:35,a:20},{m:45,a:30},{m:55,a:45}],rev:6,d:'Moterys sėja grūdus, laukas auga, o prinokusius javus vyrai nupjauna ir neša grūdus į sandėlį.'},
- gyvuliai:{n:'Gyvulių ūkis',ic:'🐄',cat:'maistas',sx:'mf',fld:1,lv:['Gardas su pašiūre','Tvartelis','Tvartas ant pamato','Mūrinis tvartas','Didysis tvartas'],size:[3,3,3,3,3],wk:[2,2,3,3,4],spr:['tvartas_1','tvartas_2','tvartas_3','tvartas_4','tvartas_5'],cost:[{m:30},{m:35,a:10},{m:40,a:20},{m:50,a:30},{m:60,a:45}],rev:6,d:'Moterys šeria karves ir avis – avys duoda vilnos, bandą gausėja. Kai gyvulių daug, vyrai skerdžia ir neša mėsą į sandėlį.'},
- malunas:{n:'Malūnas',ic:'🌬',cat:'maistas',sx:'m',lv:['Medinis malūnėlis','Stiebinis malūnas','Mūrinis malūnas','Malūnas su galerija','Didysis malūnas'],size:[2,2,2,2,2],wk:[1,1,2,2,3],spr:['malunas_1','malunas_2','malunas_3','malunas_4','malunas_5'],cost:[{m:30,a:5},{m:35,a:15},{m:40,a:25},{m:50,a:35},{m:60,a:50}],rev:8,d:'Vyrai atsineša grūdų iš sandėlio ir mala juos į miltus.'},
- kepykla:{n:'Kepykla',ic:'🍞',cat:'maistas',sx:'f',lv:['Trobelė su krosnimi','Kepyklėlė','Kepykla su mūrine krosnimi','Mūrinė kepykla','Didžioji kepykla'],size:[2,2,2,2,2],wk:[1,1,2,2,3],spr:['kepykla_1','kepykla_2','kepykla_3','kepykla_4','kepykla_5'],cost:[{m:25,a:10},{m:30,a:15},{m:35,a:25},{m:45,a:35},{m:55,a:50}],rev:6,d:'Moterys kepa duoną iš miltų, krosniai kūrena malkas. Duona – sočiausias maistas (1 kepalas = 2 porcijos).'},
- zolininke:{n:'Žolininkės trobelė',ic:'🌿',cat:'gydymas',lv:['Žolininkės trobelė','Žolininkės namelis','Namelis su šiltnamiu','Gydytojos namas','Ligoninė'],size:[2,2,2,2,2],wk:[1,1,1,2,2],spr:['zolininke_1','zolininke_2','zolininke_3','zolininke_4','zolininke_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:6,d:'Žolininkė gydo susirgusius gyventojus. Sergantis nedirba.'}
+ namas:{n:'Gyvenamasis namas',ic:'🏠',lv:['Šiaudinė troba','Medinis namas','Namas su akmeniniu pamatu','Mūrinis namas','Dviaukštis miestiečio namas'],size:[3,3,3,3,3],cap:[2,4,6,8,10],spr:['b_namas_1','b_namas_2','b_namas_3','b_namas_4','b_namas_5'],cost:[{m:10},{m:20},{m:25,a:15},{m:30,a:30},{m:40,a:50}],rev:6,d:'Čia gyvena šeima. Moterys parneša maisto ir malkų, gamina valgį.'},
+ malkine:{n:'Malkinė',ic:'🪓',cat:'mediena',lv:['Malkų stoginė','Medkirčio trobelė','Medkirčių stovykla','Medienos dirbtuvės','Didžioji lentpjūvė'],size:[3,3,3,3,3],wk:[1,2,3,4,4],spr:['b_malkine_1','b_malkine_2','b_malkine_3','b_malkine_4','b_malkine_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:7,d:'Medkirčiai kerta medžius ir neša malkas į sandėlį. Nuo pirmo lygio patys sodina naujus medžius, o kai aplink medžių nebelieka – eina kirsti toliau.'},
+ sulinys:{n:'Šulinys',ic:'💧',lv:['Paprastas šulinys','Šulinys su stogeliu','Šulinys su loviu','Šulinys su skridiniu','Akmeninis fontanas'],size:[3,3,3,3,3],spr:['b_sulinys_1','b_sulinys_2','b_sulinys_3','b_sulinys_4','b_sulinys_5'],cost:[{m:8,a:4},{m:10,a:8},{m:12,a:15},{m:15,a:25},{m:20,a:35}],rad:[6,7,8,9,10],rev:5,d:'Namai netoli šulinio laimingesni. Iš šulinio nešamas vanduo gaisrams gesinti.'},
+ sandelis:{n:'Sandėlis',ic:'📦',lv:['Rąstinis sandėlis','Didesnis sandėlis','Daržinė','Mūrinis sandėlis','Didysis sandėlis'],size:[3,3,3,3,3],scap:[100,160,240,350,500],spr:['b_sandelis_1','b_sandelis_2','b_sandelis_3','b_sandelis_4','b_sandelis_5'],cost:[{m:30},{m:40},{m:50,a:20},{m:60,a:40},{m:80,a:60}],rev:9,d:'Čia laikomi visi ištekliai.'},
+ medziotojas:{n:'Medžiotojo namelis',ic:'🦌',cat:'maistas',lv:['Medžiotojo trobelė','Medžiotojo namelis','Namelis su rūkykla','Medžiotojų namas','Medžioklės sodyba'],size:[3,3,3,3,3],wk:[1,1,2,2,3],spr:['b_medziotojas_1','b_medziotojas_2','b_medziotojas_3','b_medziotojas_4','b_medziotojas_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:7,d:'Medžiotojai medžioja elnius miške ir parneša mėsos.'},
+ zvejas:{n:'Žvejo trobelė',ic:'🐟',cat:'maistas',water:1,lv:['Žvejo trobelė','Žvejo namelis','Žuvų džiovykla','Žvejų namas ant polių','Didžioji žvejų sodyba'],size:[3,3,3,3,3],wk:[1,1,2,2,3],spr:['b_zvejas_1','b_zvejas_2','b_zvejas_3','b_zvejas_4','b_zvejas_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:7,d:'Statoma prie vandens. Žvejai gaudo žuvį.'},
+ skaldykla:{n:'Akmens skaldykla',ic:'⛏',cat:'akmuo',sx:'m',mtn:1,lv:['Skaldytojų urvas','Skaldykla su pastoge','Skaldykla su bėgiais','Akmentašių dirbtuvės','Didžioji skaldykla'],size:[3,3,3,3,3],wk:[1,2,2,3,4],spr:['b_skaldykla_1','b_skaldykla_2','b_skaldykla_3','b_skaldykla_4','b_skaldykla_5'],cost:[{m:20},{m:25,a:5},{m:30,a:15},{m:40,a:25},{m:50,a:40}],rev:6,d:'Statoma kalno ar uolos papėdėje. Vyrai nuolat skaldo uolą ir neša akmenis į sandėlį.'},
+ lentpjuve:{n:'Lentpjūvė',ic:'🪚',cat:'mediena',sx:'m',lv:['Pjovėjų pastogė','Lentpjūvės stoginė','Lentpjūvė ant pamato','Lentpjūvė su vandens ratu','Didžioji lentpjūvė'],size:[3,3,3,3,3],wk:[1,1,2,2,3],spr:['b_lentpjuve_1','b_lentpjuve_2','b_lentpjuve_3','b_lentpjuve_4','b_lentpjuve_5'],cost:[{m:25},{m:30,a:10},{m:35,a:20},{m:45,a:30},{m:55,a:45}],rev:6,d:'Vyrai parsineša malkų iš malkinės ir supjauna jas į lentas. Lentų reikia pastatams tobulinti nuo 3 lygio.'},
+ ukis:{n:'Ūkis',ic:'🌾',cat:'maistas',sx:'mf',fld:1,lv:['Klėtelė su lauku','Kluonas su lauku','Klėtis ant pamato','Ūkis su džiovykla','Didysis ūkis'],size:[3,3,3,3,3],wk:[2,2,3,4,4],spr:['b_ukis_1','b_ukis_2','b_ukis_3','b_ukis_4','b_ukis_5'],cost:[{m:25},{m:30,a:10},{m:35,a:20},{m:45,a:30},{m:55,a:45}],rev:6,d:'Moterys sėja grūdus, laukas auga, o prinokusius javus vyrai nupjauna ir neša grūdus į sandėlį.'},
+ gyvuliai:{n:'Gyvulių ūkis',ic:'🐄',cat:'maistas',sx:'mf',fld:1,lv:['Gardas su pašiūre','Tvartelis','Tvartas ant pamato','Mūrinis tvartas','Didysis tvartas'],size:[3,3,3,3,3],wk:[2,2,3,3,4],spr:['b_gyvuliai_1','b_gyvuliai_2','b_gyvuliai_3','b_gyvuliai_4','b_gyvuliai_5'],cost:[{m:30},{m:35,a:10},{m:40,a:20},{m:50,a:30},{m:60,a:45}],rev:6,d:'Moterys šeria karves ir avis – avys duoda vilnos, bandą gausėja. Kai gyvulių daug, vyrai skerdžia ir neša mėsą į sandėlį.'},
+ malunas:{n:'Malūnas',ic:'🌬',cat:'maistas',sx:'m',lv:['Medinis malūnėlis','Stiebinis malūnas','Mūrinis malūnas','Malūnas su galerija','Didysis malūnas'],size:[3,3,3,3,3],wk:[1,1,2,2,3],spr:['b_malunas_1','b_malunas_2','b_malunas_3','b_malunas_4','b_malunas_5'],cost:[{m:30,a:5},{m:35,a:15},{m:40,a:25},{m:50,a:35},{m:60,a:50}],rev:8,d:'Vyrai atsineša grūdų iš sandėlio ir mala juos į miltus.'},
+ kepykla:{n:'Kepykla',ic:'🍞',cat:'maistas',sx:'f',lv:['Trobelė su krosnimi','Kepyklėlė','Kepykla su mūrine krosnimi','Mūrinė kepykla','Didžioji kepykla'],size:[3,3,3,3,3],wk:[1,1,2,2,3],spr:['b_kepykla_1','b_kepykla_2','b_kepykla_3','b_kepykla_4','b_kepykla_5'],cost:[{m:25,a:10},{m:30,a:15},{m:35,a:25},{m:45,a:35},{m:55,a:50}],rev:6,d:'Moterys kepa duoną iš miltų, krosniai kūrena malkas. Duona – sočiausias maistas (1 kepalas = 2 porcijos).'},
+ zolininke:{n:'Žolininkės trobelė',ic:'🌿',cat:'gydymas',lv:['Žolininkės trobelė','Žolininkės namelis','Namelis su šiltnamiu','Gydytojos namas','Ligoninė'],size:[3,3,3,3,3],wk:[1,1,1,2,2],spr:['b_zolininke_1','b_zolininke_2','b_zolininke_3','b_zolininke_4','b_zolininke_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:6,d:'Žolininkė gydo susirgusius gyventojus. Sergantis nedirba.'}
 };
 for(const t in B){const c=B[t].cost;c[2].l=(c[2].l||0)+5;c[3].l=(c[3].l||0)+10;c[4].l=(c[4].l||0)+15;}
 const ORDER=['namas','malkine','sulinys','sandelis','medziotojas','zvejas','zolininke','skaldykla','lentpjuve','ukis','gyvuliai','malunas','kepykla'];
@@ -47,12 +47,14 @@ function newGame(){
  S={v:VER,t:0,res:{...RES0,m:95,a:20,mesa:20,zuvis:12},b:[],p:[],deer:[],objs:MAP.objs.map(o=>{const r=o[2]=='akmenys'||o[2]=='uola';return{x:o[0],y:o[1],k:o[2],s:r?(o[2]=='uola'?1.1:0.9):o[3],amt:r?o[3]:0}}),wear:new Float32Array(4*N*N),fog:new Uint8Array(N*N),prio:['statyba','maistas','akmuo','mediena','gydymas'],roads:[],id:1,newT:0,cam:null,hint:{}};RD=new Set();
  addForest();
  rebuildGrids();
- for(const [t,x,y] of MAP.start){const b=addB(t,x,y,1);}
+ for(const [t,x,y] of MAP.start){for(let i=0;i<3;i++)for(let j=0;j<3;j++){const q=idx(x+i,y+j);if(objAt[q]){S.objs=S.objs.filter(o=>o!==objAt[q]);objAt[q]=null;}}const b=addB(t,x,y,1);}
  const hs=S.b.filter(b=>b.t=='namas');
  for(const h of hs){spawnP('m',false,h);spawnP('f',false,h);}
  reveal(44,41,11);
  for(let i=0;i<80&&S.deer.length<14;i++)deerTick(40);
 }
+function grow3(){for(const b of S.b){if(b.s>=3)continue;let ok=true;for(let i=0;i<3&&ok;i++)for(let j=0;j<3;j++){const X=b.x+i,Y=b.y+j,q=idx(X,Y);if(!inM(X,Y)||'wuc'.includes(terr(X,Y))||(occ[q]&&occ[q]!=b.id)||objAt[q]||BR.has(q)||RD.has(q)){ok=false;break;}}
+ if(ok){markB(b,0);b.s=3;markB(b,b.id);b.an=null;}}}
 function rebuildGrids(){occ=new Int32Array(N*N);objAt=new Array(N*N).fill(null);
  for(const o of S.objs)objAt[idx(o.x,o.y)]=o;
  for(const b of S.b)markB(b,b.id);}
@@ -319,8 +321,8 @@ function tod(){return ((S.t+DAY*0.3)%DAY)/DAY;}
 function darkness(){const t=tod();if(t<0.6)return 0;if(t<0.72)return (t-0.6)/0.12;if(t<0.92)return 1;return 1-(t-0.92)/0.08;}
 function isNight(){const t=tod();return t>=0.7&&t<0.93;}
 function untilDawn(){return Math.max(2,(0.95-tod())*DAY);}
-function reserveOf(b){return b.t=='namas'&&b.s==1&&b.lv<2?2:b.s;}
-function inReserve(X,Y,skip){for(const b of S.b){if(b===skip||b.t!='namas'||b.s!=1)continue;if(X>=b.x&&X<b.x+2&&Y>=b.y&&Y<b.y+2&&!(X==b.x&&Y==b.y))return b;}return null;}
+function reserveOf(b){return b.s;}
+function inReserve(X,Y,skip){return null;}
 function demolish(b){if(b.t=='sandelis'&&stores().length<=1){toast('Negalima griauti vienintelio sandėlio');return;}b.demo=6+4*Math.max(1,b.lv);b.st='demo';b.site=null;for(const p of S.p){if(p.job==b.id){p.job=0;abort(p);}if(p.role==b.id)p.role=0;}toast('Griovimas pradėtas – gyventojai išardys pastatą');save();}
 function finishDemo(b){let m=0,a=0,lt=0;for(let l=0;l<Math.max(1,b.lv);l++){const c=B[b.t].cost[l];m+=c.m||0;a+=c.a||0;lt+=c.l||0;}m=Math.floor(m/2)+Math.floor(b.mk||0);a=Math.floor(a/2);lt=Math.floor(lt/2);if(lt)deposit('l',lt);if(b.vb)deposit('v',Math.floor(b.vb));
  const i=S.b.indexOf(b);if(i>=0)S.b.splice(i,1);markB(b,0);rebuildGrids();
@@ -362,12 +364,11 @@ function deerTick(dt){
 function canPlace(t,x,y){const s=B[t].size[0];let water=false;
  for(let i=0;i<s;i++)for(let j=0;j<s;j++){const X=x+i,Y=y+j;if(!inM(X,Y))return 'Už žemėlapio ribų';if(!S.fog[idx(X,Y)])return 'Ši vieta dar neatrasta';
   const te=terr(X,Y);if(te=='w')return 'Negalima statyti ant vandens';if(te=='u'||te=='c')return 'Negalima statyti ant kalno';if(occ[idx(X,Y)])return 'Vieta užimta';const o=objAt[idx(X,Y)];if(o)return isTree(o)?'Čia auga medis':o.k=='kelmas'?'Čia kelmas':'Čia guli akmenys';if(BR.has(idx(X,Y)))return 'Čia tiltas';if(inReserve(X,Y))return 'Ši vieta rezervuota namo plėtrai';}
- if(t=='namas'){for(let i=0;i<2;i++)for(let j=0;j<2;j++){if(!i&&!j)continue;const X=x+i,Y=y+j;if(!inM(X,Y)||'wuc'.includes(terr(X,Y)))return 'Namui reikia vietos plėtrai (2×2 į dešinę ir žemyn)';if(occ[idx(X,Y)]||inReserve(X,Y))return 'Plėtros vietą užima kitas pastatas';}}
  if(B[t].mtn){let k=0;for(let i=0;i<s;i++)for(const[X,Y]of[[x+i,y-1],[x+i,y+s],[x-1,y+i],[x+s,y+i]])if(inM(X,Y)&&isMtn(X,Y))k++;if(k<1)return 'Skaldykla turi stovėti prie pat kalno ar uolos';}
  if(B[t].water){for(let i=-1;i<=s;i++)for(let j=-1;j<=s;j++){const X=x+i,Y=y+j;if(inM(X,Y)&&terr(X,Y)=='w')water=true;}if(!water)return 'Žvejo trobelė turi būti prie vandens';}
  return '';}
 function canUpgrade(b){if(b.lv>=5)return 'Jau aukščiausias lygis';if(b.st!='ok')return 'Jau tobulinama';if(b.fire)return 'Dega!';
- const ns=B[b.t].size[b.lv];if(ns>b.s){for(let i=0;i<ns;i++)for(let j=0;j<ns;j++){const X=b.x+i,Y=b.y+j;if(i<b.s&&j<b.s)continue;if(!inM(X,Y)||'wuc'.includes(terr(X,Y))||occ[idx(X,Y)]||objAt[idx(X,Y)]||BR.has(idx(X,Y)))return 'Reikia laisvos vietos šalia (2×2), į dešinę ir žemyn';}}return '';}
+ const ns=B[b.t].size[b.lv];if(ns>b.s){for(let i=0;i<ns;i++)for(let j=0;j<ns;j++){const X=b.x+i,Y=b.y+j;if(i<b.s&&j<b.s)continue;if(!inM(X,Y)||'wuc'.includes(terr(X,Y))||occ[idx(X,Y)]||objAt[idx(X,Y)]||BR.has(idx(X,Y)))return 'Trūksta vietos: reikia laisvo 3×3 sklypo (į dešinę ir žemyn)';}}return '';}
 function upgrade(b){const e=canUpgrade(b);if(e){toast(e);return;}const ns=B[b.t].size[b.lv];b.site=mkSite(b.t,b.lv);b.st='upg';if(ns>b.s){b.s=ns;markB(b,b.id);}toast('Tobulinimas pradėtas – gyventojai patys atneš medžiagas');save();}
 // ---------- save ----------
 function save(){try{const o={...S,wear:null,fog:null,p:S.p.map(p=>({...p,q:[],path:null,res:null,fire:0,bucket:0,treat:0,badT:null,astarChk:null,badS:null,stChk:null,tgt:null,role:p.role})),b:S.b.map(b=>({...b,door:null,fish:null,rock:null,an:null,site:b.site?{...b.site,inb:{m:0,a:0,l:0}}:null})),deer:S.deer.map(d=>({...d,res:0,st:0})),objs:S.objs.map(o=>({...o,res:0}))};
@@ -379,7 +380,7 @@ function load(){try{const s=localStorage.getItem('miestas_save');if(!s)return fa
  o.res={...RES0,...o.res};if(!o.prio.includes('akmuo'))o.prio.splice(Math.min(2,o.prio.length),0,'akmuo');o.roads=o.roads||[];
  for(const b of o.b){if(b.t=='malkine'&&b.mk==null)b.mk=0;if(b.t=='namas'&&b.cl==null)b.cl=0;if(b.site){for(const k of['need','got','inb'])b.site[k]={m:0,a:0,l:0,...b.site[k]};}}
  for(const p of o.p){if(p.hold){for(const k in p.hold)o.res[k]=(o.res[k]||0)+p.hold[k];p.hold=null;}}
- S=o;RD=new Set(o.roads);rebuildGrids();if(o.cam)cam=o.cam;return true;}catch(e){console.warn(e);return false;}}
+ S=o;RD=new Set(o.roads);rebuildGrids();grow3();if(o.cam)cam=o.cam;return true;}catch(e){console.warn(e);return false;}}
 // ---------- camera & render ----------
 let W=0,H=0,DPR=1,cam={x:0,y:0,z:0.45};
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';}
@@ -393,8 +394,10 @@ function chunk(cx,cy){const k=cx+'_'+cy;let c=CH[k];if(c===undefined){if(!MAP.ch
 let blob=null;function mkBlob(){blob=document.createElement('canvas');blob.width=96;blob.height=48;const c=blob.getContext('2d');const g=c.createRadialGradient(48,24,2,48,24,46);g.addColorStop(0,'rgba(128,98,62,0.95)');g.addColorStop(0.55,'rgba(122,94,60,0.75)');g.addColorStop(1,'rgba(118,92,60,0)');c.setTransform(1,0,0,0.5,0,0);c.fillStyle=g;c.beginPath();c.arc(48,48,46,0,7);c.fill();c.setTransform(1,0,0,1,0,0);
  for(let i=0;i<60;i++){c.fillStyle=`rgba(${90+R()*60|0},${70+R()*40|0},${45+R()*30|0},${R()*.35})`;const a=R()*6.28,r=R()*30;c.fillRect(48+Math.cos(a)*r,24+Math.sin(a)*r*.5,2,1.5);}}
 let build=null,sel=null,lastT=0,fps=60;
-function spriteDims(b,lv){const im=img(B[b.t].spr[lv-1]);if(!im)return null;let s=B[b.t].size[lv-1];if(B[b.t].fld)s=2;const w=b.t=='sandelis'?TW*2.25:b.t=='sulinys'?TW*0.95:b.t=='namas'?TW*s*0.9:s>1?TW*s*1.08:TW*1.3;const h=im.height*w/im.width;
- const[X,Y]=wpos(b.x+s-1,b.y+s-1);return{im,x:X-w/2,y:Y+TH-h+TH*0.12*s,w,h};}
+const SM={"gyvuliai_1":[373,2,370,192,282],"gyvuliai_2":[392,3,389,196,291],"gyvuliai_3":[392,2,388,194,311],"gyvuliai_4":[385,2,382,191,311],"gyvuliai_5":[471,2,468,217,312],"kepykla_1":[355,2,350,180,267],"kepykla_2":[364,2,361,185,276],"kepykla_3":[375,2,371,186,302],"kepykla_4":[394,2,390,198,302],"kepykla_5":[404,2,401,199,293],"lentpjuve_1":[391,2,387,198,272],"lentpjuve_2":[382,2,377,191,273],"lentpjuve_3":[379,2,376,192,272],"lentpjuve_4":[384,2,381,196,275],"lentpjuve_5":[418,2,413,205,288],"malkine_1":[367,3,364,185,263],"malkine_2":[378,3,369,190,264],"malkine_3":[388,2,383,191,281],"malkine_4":[393,2,389,193,292],"malkine_5":[417,2,414,199,303],"malunas_1":[349,2,346,178,330],"malunas_2":[359,2,356,183,334],"malunas_3":[369,2,365,182,354],"malunas_4":[378,2,375,194,359],"malunas_5":[399,2,391,191,366],"medziotojas_1":[360,2,356,187,298],"medziotojas_2":[374,2,371,195,298],"medziotojas_3":[387,2,383,196,304],"medziotojas_4":[393,2,390,201,303],"medziotojas_5":[411,2,406,207,314],"namas_1":[430,2,427,219,363],"namas_2":[416,2,413,212,378],"namas_3":[413,2,410,209,400],"namas_4":[417,2,413,213,399],"namas_5":[441,2,437,217,400],"sandelis_1":[355,2,352,184,270],"sandelis_2":[372,2,369,189,288],"sandelis_3":[384,2,381,193,300],"sandelis_4":[389,2,386,194,302],"sandelis_5":[411,2,408,208,308],"skaldykla_1":[389,2,386,190,289],"skaldykla_2":[383,2,379,189,285],"skaldykla_3":[376,2,373,191,294],"skaldykla_4":[384,2,380,195,299],"skaldykla_5":[416,2,412,203,295],"sulinys_1":[370,9,359,187,267],"sulinys_2":[379,2,375,194,284],"sulinys_3":[383,2,380,193,321],"sulinys_4":[391,2,388,195,323],"sulinys_5":[413,2,410,207,332],"ukis_1":[372,2,369,190,276],"ukis_2":[391,2,386,194,280],"ukis_3":[391,2,387,195,285],"ukis_4":[384,2,381,191,294],"ukis_5":[467,2,463,196,300],"zolininke_1":[377,2,374,192,297],"zolininke_2":[380,2,376,194,299],"zolininke_3":[385,2,381,200,317],"zolininke_4":[403,2,400,204,318],"zolininke_5":[428,2,423,211,330],"zvejas_1":[380,2,376,192,275],"zvejas_2":[383,2,380,193,296],"zvejas_3":[383,2,380,195,313],"zvejas_4":[407,2,404,204,312],"zvejas_5":[428,2,424,215,336]};
+// v7: every sprite is a fenced plot; scale so the plot diamond spans exactly the building footprint, bottom vertex on footprint bottom vertex
+function spriteDims(b,lv){const nm=B[b.t].spr[lv-1],im=img(nm);if(!im)return null;const s=b.s||3,m=SM[nm.slice(2)];if(!m)return null;
+ const sc=s*TW/(m[2]-m[1]),w=im.width*sc,h=im.height*sc;const[X,Y]=wpos(b.x+s-1,b.y+s-1);return{im,x:X-m[3]*sc,y:Y+TH-m[4]*sc,w,h};}
 function render(){
  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#161a20';ctx.fillRect(0,0,W,H);
  const z=cam.z;ctx.setTransform(DPR*z,0,0,DPR*z,DPR*(W/2-cam.x*z),DPR*(H/2-cam.y*z));
@@ -411,7 +414,7 @@ function render(){
  ctx.globalAlpha=1;
  // roads
  if(!cob)mkCob();for(const i of RD){const x=i%N,y=(i/N)|0;if(x<tx0||x>tx1||y<ty0||y>ty1)continue;const[X,Y]=wpos(x,y);ctx.drawImage(cob,X-TW/2,Y,TW,TH);}
- for(const b of S.b){if(!B[b.t].fld||b.st=='site'&&!b.lv)continue;if(b.x+2<tx0-1||b.x>tx1+1||b.y+2<ty0-1||b.y>ty1+1)continue;if(b.t=='ukis')drawField(b);else drawPen(b,0);}
+ for(const b of S.b){if(!B[b.t].fld||b.st=='site'&&!b.lv||b.s>=3)continue;if(b.x+2<tx0-1||b.x>tx1+1||b.y+2<ty0-1||b.y>ty1+1)continue;if(b.t=='ukis')drawField(b);else drawPen(b,0);}
  // build grid
  if(build){ctx.strokeStyle='rgba(255,255,255,0.22)';ctx.lineWidth=1/z;ctx.beginPath();for(let y=ty0;y<=ty1;y++)for(let x=tx0;x<=tx1;x++){if(!S.fog[idx(x,y)]||'wuc'.includes(terr(x,y)))continue;const[X,Y]=wpos(x,y);ctx.moveTo(X,Y);ctx.lineTo(X+TW/2,Y+TH/2);ctx.lineTo(X,Y+TH);ctx.lineTo(X-TW/2,Y+TH/2);ctx.closePath();}ctx.stroke();
   if(build.x!=null){const s=B[build.t].size[0],ok=!canPlace(build.t,build.x,build.y);const P=[wpos(build.x,build.y),wpos(build.x+s,build.y),wpos(build.x+s,build.y+s),wpos(build.x,build.y+s)];
@@ -425,9 +428,9 @@ function render(){
  const D=[];
  for(let y=ty0;y<=ty1;y++)for(let x=tx0;x<=tx1;x++){const o=objAt[idx(x,y)];if(o&&S.fog[idx(x,y)]>0||o&&nearSeen(x,y))D.push([x+y+0.9,0,o]);}
  const MC=MAP.MC,MR=MAP.MR;D.push([MC[0]+MR+MC[1]+MR+1,3,{k:'gora',x:MC[0]+MR,y:MC[1]+MR,s:2*MR+1}]);const CL=MAP.CL;D.push([CL[0]+CL[1]+2*CL[2],3,{k:'uolynas',x:CL[0]+CL[2]-1,y:CL[1]+CL[2]-1,s:CL[2]}]);
- for(const b of S.b)D.push([b.x+b.y+2*(B[b.t].fld?2:b.s)-1.5,2,b]);
- for(const b of S.b){if(b.t!='gyvuliai'||!b.lv||b.st=='site')continue;for(const a of herdAnim(b))D.push([a.x+a.y,5,a]);}
- for(const p of S.p)if(!p.in&&seen(p.x,p.y))D.push([p.x+p.y,1,p]);
+ for(const b of S.b)D.push([b.s>=3?b.x+b.y+3:b.x+b.y+2*(B[b.t].fld?2:b.s)-1.5,2,b]);// v7: 3×3 plot depth
+ for(const b of S.b){if(b.t!='gyvuliai'||!b.lv||b.st=='site')continue;for(const a of herdAnim(b))D.push([Math.max(a.x+a.y,b.s>=3?b.x+b.y+3.05:0),5,a]);}
+ for(const p of S.p)if(!p.in&&seen(p.x,p.y)){const o=inM(p.x|0,p.y|0)?occ[idx(p.x|0,p.y|0)]:0,ob=o&&bId(o);D.push([ob&&ob.s>=3?Math.max(p.x+p.y,ob.x+ob.y+3.05):p.x+p.y,1,p]);}
  for(const d of S.deer)if(seen(d.x,d.y))D.push([d.x+d.y,4,d]);
  D.sort((a,b)=>a[0]-b[0]);
  const top=[];
@@ -438,7 +441,7 @@ function render(){
   else if(k==1)drawP(o);
   else if(k==5){const im=img(o.k);if(!im)continue;const[X,Y]=wpos(o.x,o.y);const w=TW*(o.k=='karve'?0.5:0.34),h=im.height*w/im.width;ctx.save();ctx.translate(X,Y+TH*0.15);if(o.fl<0)ctx.scale(-1,1);ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(0,0,w*0.4,w*0.12,0,0,7);ctx.fill();ctx.drawImage(im,-w/2,-h+(o.mv?Math.sin(S.t*7+o.x)*0.8:0),w,h);ctx.restore();}
   else if(k==4){const im=img('elnias');if(!im)continue;const[X,Y]=wpos(o.x,o.y);const w=TW*0.42,h=im.height*w/im.width;ctx.save();ctx.translate(X,Y+TH*0.2);if(o.fl*DEERF<0)ctx.scale(-1,1);if(o.dead){ctx.rotate(-Math.min(1,(S.t-o.dead)*2.5)*1.45);}ctx.drawImage(im,-w/2,-h+(o.mv?Math.sin(S.t*8)*1:0),w,h);ctx.restore();}}
- for(const b of S.b)if(b.t=='gyvuliai'&&b.lv&&b.st!='site')drawPen(b,1);
+ for(const b of S.b)if(b.t=='gyvuliai'&&b.lv&&b.st!='site'&&b.s<3)drawPen(b,1);
  for(const f of FX)f();FX.length=0;
  // fish ripples
  for(const b of S.b){if(b.t!='zvejas'||!b.lv)continue;const f=b.fish||(b.fish=fishSpot(b));if(!f)continue;const[X,Y]=wpos(f.x+.5,f.y+.5);for(let k=0;k<2;k++){const ph=((S.t*0.5+k*0.5)%1);ctx.strokeStyle=`rgba(230,245,255,${0.7*(1-ph)})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(X,Y,4+ph*16,2+ph*8,0,0,7);ctx.stroke();}
@@ -536,7 +539,7 @@ function drawP(p){let n;const work=!p.mv&&p.act;
  if(p.ch)n=p.sex=='m'?'berniukas':'mergaite';
  else if(p.sex=='m'){n=p.bucket?'vyras_kibiras':p.carry?({m:'vyras_malkos',woodh:'vyras_malkos',mesa:bId(p.job)&&bId(p.job).t=='gyvuliai'?'vyras':'medziotojas_elnias',zuvis:'vyras_zuvys',food:'vyras',a:'vyras',l:'statybininkas_lentos'}[p.carry.k]||'vyras'):p.role&&p.mv?'statybininkas_lentos':'vyras';}
  else n=p.carry?'moteris_krepsys':'moteris';
- const P=parts(n);if(!P)return;let[X,Y]=wpos(p.x,p.y);if(!p.mv&&p.tgt&&(p.act=='kerta medį'||p.act=='skaldo akmenį'||p.act=='skaldo uolą')){const[TX,TY]=wpos(p.tgt.x+.5,p.tgt.y+.5);X+=(TX-X)*0.4;Y+=(TY-Y)*0.4;}const tH=TW*(p.ch?0.48:0.72)*(n=='medziotojas_elnias'?1.06:1),k=tH/P.h,h=tH,dw=TW*(p.ch?0.25:0.33);
+ const P=parts(n);if(!P)return;let[X,Y]=wpos(p.x,p.y);if(!p.mv&&p.tgt&&(p.act=='kerta medį'||p.act=='skaldo akmenį'||p.act=='skaldo uolą')){const[TX,TY]=wpos(p.tgt.x+.5,p.tgt.y+.5);X+=(TX-X)*0.4;Y+=(TY-Y)*0.4;}const tH=TW*VS*(p.ch?0.48:0.72)*(n=='medziotojas_elnias'?1.06:1),k=tH/P.h,h=tH,dw=TW*VS*(p.ch?0.25:0.33);
  ctx.save();ctx.translate(X,Y+TH*0.12);
  ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(0,-dw*0.04,dw*0.38,dw*0.15,0,0,7);ctx.fill();
  if(p.fl>0)ctx.scale(-1,1); // art faces left; flip when moving right
@@ -685,7 +688,7 @@ function frame(t){const dt=Math.min(0.1,(t-lastT)/1000||0.016);lastT=t;fps=fps*0
 document.addEventListener('visibilitychange',()=>{if(document.hidden){save();paused=true;}else{paused=false;lastT=performance.now();}});
 addEventListener('pagehide',save);addEventListener('resize',resize);
 function centerStart(){const st=S.b.find(b=>b.t=='sandelis')||{x:44,y:40};const[X,Y]=wpos(st.x+1,st.y);cam={x:X,y:Y,z:0.45};}
-Object.assign(window,{nearTrees,saveGame:save,isTree,startBuild,updBuild,endBuild,darkness,openPop,demolish,inM,terr,__bld:()=>build});window.__dbg={get S(){return S},speed:k=>speed=k,tick:(sec)=>{for(let i=0;i<sec*10;i++)tick(0.1);},fps:()=>fps,cam:()=>cam,setCam:(x,y,z)=>{const[X,Y]=wpos(x,y);cam={x:X,y:Y,z:z||cam.z};},
+Object.assign(window,{nearTrees,saveGame:save,isTree,startBuild,updBuild,endBuild,darkness,openPop,demolish,inM,terr,__bld:()=>build});window.__dbg={get S(){return S},grow3,rebuildGrids,load,speed:k=>speed=k,tick:(sec)=>{for(let i=0;i<sec*10;i++)tick(0.1);},fps:()=>fps,cam:()=>cam,setCam:(x,y,z)=>{const[X,Y]=wpos(x,y);cam={x:X,y:Y,z:z||cam.z};},
  place:(t,x,y)=>{const e=canPlace(t,x,y);if(e)return e;addB(t,x,y,0);return 'ok';},canPlace,upgrade:id=>upgrade(bId(id)),save,load,fire:id=>{const b=bId(id);b.fire=30;},sick:id=>{const p=S.p.find(q=>q.id==id);p.sick=DAY*2;abort(p);},reveal,openPop:id=>openPop(bId(id)),startBuild,tap,roadAt:(x,y)=>{roadMode=roadMode||{del:false};roadAt(x,y);},spawnP,startRoad,get RD(){return RD},finish:id=>{const b=bId(id);if(b.site)finishSite(b);},w2s:(x,y)=>{const[X,Y]=wpos(x,y);return[(X-cam.x)*cam.z+W/2,(Y-cam.y)*cam.z+H/2];}};
 fetch('map.json').then(r=>r.json()).then(m=>{MAP=m;N=m.N;TER=m.T;WW=N*TW;HH=N*TH;
  for(let x=0;x<N;x++)if(TER[44][x]=='w'&&x>25&&x<40)BR.add(idx(x,44));
