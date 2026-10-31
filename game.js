@@ -1,0 +1,439 @@
+'use strict';
+(()=>{
+const TW=96,TH=48,DAY=180,VER=1;
+let MAP,N,TER,WW,HH;
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d');
+// ---------- images ----------
+const IM={};
+function img(n){let i=IM[n];if(!i){i=new Image();i.src='img/'+n+'.webp';IM[n]=i;}return i.complete&&i.naturalWidth?i:null;}
+// ---------- definitions ----------
+const B={
+ namas:{n:'Gyvenamasis namas',ic:'🏠',lv:['Šiaudinė troba','Medinis namas','Namas su akmeniniu pamatu','Mūrinis namas','Dviaukštis miestiečio namas'],size:[1,2,2,2,2],cap:[2,4,6,8,10],spr:['l1_gyvenamasis_namas','namas_2','namas_3','namas_4','namas_5'],cost:[{m:10},{m:20},{m:25,a:15},{m:30,a:30},{m:40,a:50}],rev:6,d:'Čia gyvena šeima. Moterys parneša maisto ir malkų, gamina valgį.'},
+ malkine:{n:'Malkinė',ic:'🪓',cat:'mediena',lv:['Malkų stoginė','Medkirčio trobelė','Medkirčių stovykla','Medienos dirbtuvės','Didžioji lentpjūvė'],size:[2,2,2,2,2],wk:[1,2,3,4,4],spr:['l1_malkine','malkine_2','malkine_3','malkine_4','malkine_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:7,d:'Medkirčiai kerta medžius ir neša malkas į sandėlį. Nuo 3 lygio patys sodina naujus medžius.'},
+ sulinys:{n:'Šulinys',ic:'💧',lv:['Paprastas šulinys','Šulinys su stogeliu','Šulinys su loviu','Šulinys su skridiniu','Akmeninis fontanas'],size:[1,1,1,1,1],spr:['l1_sulinys','sulinys_2','sulinys_3','sulinys_4','sulinys_5'],cost:[{m:8,a:4},{m:10,a:8},{m:12,a:15},{m:15,a:25},{m:20,a:35}],rad:[6,7,8,9,10],rev:5,d:'Namai netoli šulinio laimingesni. Iš šulinio nešamas vanduo gaisrams gesinti.'},
+ sandelis:{n:'Sandėlis',ic:'📦',lv:['Rąstinis sandėlis','Didesnis sandėlis','Daržinė','Mūrinis sandėlis','Didysis sandėlis'],size:[3,3,3,3,3],scap:[100,160,240,350,500],spr:['l1_sandelis','sandelis_2','sandelis_3','sandelis_4','sandelis_5'],cost:[{m:30},{m:40},{m:50,a:20},{m:60,a:40},{m:80,a:60}],rev:9,d:'Čia laikomi visi ištekliai.'},
+ medziotojas:{n:'Medžiotojo namelis',ic:'🦌',cat:'maistas',lv:['Medžiotojo trobelė','Medžiotojo namelis','Namelis su rūkykla','Medžiotojų namas','Medžioklės sodyba'],size:[2,2,2,2,2],wk:[1,1,2,2,3],spr:['l1_medziotojo_namelis','medziotojas_2','medziotojas_3','medziotojas_4','medziotojas_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:7,d:'Medžiotojai medžioja elnius miške ir parneša mėsos.'},
+ zvejas:{n:'Žvejo trobelė',ic:'🐟',cat:'maistas',water:1,lv:['Žvejo trobelė','Žvejo namelis','Žuvų džiovykla','Žvejų namas ant polių','Didžioji žvejų sodyba'],size:[2,2,2,2,2],wk:[1,1,2,2,3],spr:['l1_zvejo_trobele','zvejas_2','zvejas_3','zvejas_4','zvejas_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:7,d:'Statoma prie vandens. Žvejai gaudo žuvį.'},
+ zolininke:{n:'Žolininkės trobelė',ic:'🌿',cat:'gydymas',lv:['Žolininkės trobelė','Žolininkės namelis','Namelis su šiltnamiu','Gydytojos namas','Ligoninė'],size:[2,2,2,2,2],wk:[1,1,1,2,2],spr:['zolininke_1','zolininke_2','zolininke_3','zolininke_4','zolininke_5'],cost:[{m:15},{m:25},{m:30,a:10},{m:40,a:25},{m:50,a:40}],rev:6,d:'Žolininkė gydo susirgusius gyventojus. Sergantis nedirba.'}
+};
+const ORDER=['namas','malkine','sulinys','sandelis','medziotojas','zvejas','zolininke'];
+const CATN={statyba:'Statyba',maistas:'Maistas',mediena:'Malkos',gydymas:'Gydymas'};
+const RN={m:'malkos',a:'akmuo'};
+const MN=['Jonas','Petras','Antanas','Kazys','Juozas','Povilas','Vytautas','Mindaugas','Algirdas','Tomas','Rokas','Matas','Lukas','Domas','Jokūbas','Stasys','Vincas','Benas','Adomas','Kęstutis'];
+const FNm=['Ona','Marija','Elena','Rūta','Aldona','Birutė','Jūratė','Danutė','Eglė','Gabija','Austėja','Milda','Ieva','Agnė','Rasa','Laima','Vaiva','Saulė','Kotryna','Barbora'];
+// ---------- state ----------
+let S, occ, objAt, BR=new Set(), wearDirty=true;
+const R=Math.random;
+const rnd=(a,b)=>a+R()*(b-a), pick=a=>a[Math.floor(R()*a.length)];
+const idx=(x,y)=>y*N+x, inM=(x,y)=>x>=0&&y>=0&&x<N&&y<N;
+function terr(x,y){return TER[y][x];}
+function newGame(){
+ S={v:VER,t:0,res:{m:60,a:10,mesa:15,zuvis:10},b:[],p:[],deer:[],objs:MAP.objs.map(o=>{const r=o[2]=='akmenys'||o[2]=='uola';return{x:o[0],y:o[1],k:o[2],s:r?(o[2]=='uola'?1.1:0.9):o[3],amt:r?o[3]:0}}),wear:new Float32Array(4*N*N),fog:new Uint8Array(N*N),prio:['statyba','maistas','mediena','gydymas'],id:1,newT:0,cam:null,hint:{}};
+ rebuildGrids();
+ for(const [t,x,y] of MAP.start){const b=addB(t,x,y,1);}
+ const hs=S.b.filter(b=>b.t=='namas');
+ for(const h of hs){spawnP('m',false,h);spawnP('f',false,h);}
+ reveal(44,41,11);
+ for(let i=0;i<60&&S.deer.length<8;i++)deerTick(40);
+}
+function rebuildGrids(){occ=new Int32Array(N*N);objAt=new Array(N*N).fill(null);
+ for(const o of S.objs)objAt[idx(o.x,o.y)]=o;
+ for(const b of S.b)markB(b,b.id);}
+function markB(b,v){const s=b.s;for(let i=0;i<s;i++)for(let j=0;j<s;j++)occ[idx(b.x+i,b.y+j)]=v;b.door=null;if(S)for(const q of S.b){q.door=null;q.fish=null;}}
+function addB(t,x,y,lv){const d=B[t];const b={id:S.id++,t,x,y,lv,s:d.size[Math.max(0,lv-1)],st:'ok',wk:[],pan:0,wood:2,fire:0,burn:0,hap:60};
+ if(!lv){b.st='site';b.s=d.size[0];b.site=mkSite(t,0);}
+ S.b.push(b);markB(b,b.id);if(lv)reveal(x+b.s/2,y+b.s/2,d.rev+lv);return b;}
+function mkSite(t,lv){const c=B[t].cost[lv];const need={m:c.m||0,a:c.a||0};return{to:lv+1,need,got:{m:0,a:0},inb:{m:0,a:0},prog:0,tot:(need.m+need.a)*0.6+6,bld:0};}
+function spawnP(sex,child,home,x,y){const d=home?door(home):{x:44,y:44};
+ const p={id:S.id++,sex,ch:child,age:0,nm:sex=='m'?pick(MN):pick(FNm),home:home?home.id:0,job:0,x:(x??d.x)+0.5,y:(y??d.y)+0.5,q:[],hu:rnd(0,30),en:100,sick:0,carry:null,in:0,fl:R()<.5?1:-1,ph:R()*6,off:[rnd(-.22,.22),rnd(-.22,.22)],act:''};
+ S.p.push(p);return p;}
+const byId=id=>S.b.find(b=>b.id==id)||S.p.find(p=>p.id==id);
+const bId=id=>S.b.find(b=>b.id==id);
+// ---------- fog ----------
+let fogCv=document.createElement('canvas');fogCv.width=fogCv.height=80;let fogDirty=true;
+function reveal(cx,cy,r){for(let y=Math.max(0,Math.floor(cy-r));y<=Math.min(N-1,cy+r);y++)for(let x=Math.max(0,Math.floor(cx-r));x<=Math.min(N-1,cx+r);x++)if(Math.hypot(x+.5-cx,y+.5-cy)<=r)S.fog[idx(x,y)]=1;fogDirty=true;}
+function buildFog(){fogCv.width=N;fogCv.height=N;const c=fogCv.getContext('2d'),id=c.createImageData(N,N);
+ const dist=new Uint8Array(N*N).fill(9);const q=[];for(let i=0;i<N*N;i++)if(S.fog[i]){dist[i]=0;q.push(i);}
+ for(let h=0;h<q.length;h++){const i=q[h],x=i%N,y=(i/N)|0;for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const X=x+dx,Y=y+dy;if(inM(X,Y)&&dist[idx(X,Y)]>dist[i]+1){dist[idx(X,Y)]=dist[i]+1;if(dist[i]+1<4)q.push(idx(X,Y));}}}
+ const A=[0,140,200,225,235];for(let i=0;i<N*N;i++){id.data[i*4]=20;id.data[i*4+1]=24;id.data[i*4+2]=30;id.data[i*4+3]=A[Math.min(4,dist[i])];}
+ c.putImageData(id,0,0);fogDirty=false;}
+const seen=(x,y)=>inM(x|0,y|0)&&S.fog[idx(x|0,y|0)];
+// ---------- map helpers ----------
+function isMtn(x,y){return 'uc'.includes(terr(x,y));}
+function walk(x,y){if(!inM(x,y))return false;const t=terr(x,y);if(t=='w')return BR.has(idx(x,y));if(t=='u'||t=='c')return false;return !occ[idx(x,y)];}
+function door(b){if(b.door)return b.door;const s=b.s,c=[[b.x+(s>>1),b.y+s],[b.x+s,b.y+(s>>1)],[b.x+(s>>1),b.y-1],[b.x-1,b.y+(s>>1)],[b.x+s,b.y+s],[b.x-1,b.y+s],[b.x+s,b.y-1],[b.x-1,b.y-1]];
+ for(const[x,y]of c)if(walk(x,y))return b.door={x,y};for(let r=2;r<6;r++)for(let i=-r;i<s+r;i++)for(const[x,y]of[[b.x+i,b.y+s-1+r],[b.x+s-1+r,b.y+i]])if(walk(x,y))return b.door={x,y};return b.door={x:b.x,y:b.y+s};}
+// ---------- A* ----------
+const G=new Float32Array(6400),CF=new Int32Array(6400),ST=new Int32Array(6400);let stamp=1;
+function astar(sx,sy,tx,ty){sx|=0;sy|=0;tx|=0;ty|=0;if(!inM(tx,ty))return null;
+ if(!walk(tx,ty)){let best=null,bd=1e9;for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const X=tx+dx,Y=ty+dy;if(walk(X,Y)){const d=Math.abs(dx)+Math.abs(dy);if(d<bd){bd=d;best=[X,Y];}}}if(!best)return null;[tx,ty]=best;}
+ if(!walk(sx,sy)){let f=0;for(let r=1;r<4&&!f;r++)for(let dy=-r;dy<=r&&!f;dy++)for(let dx=-r;dx<=r&&!f;dx++)if(walk(sx+dx,sy+dy)){sx+=dx;sy+=dy;f=1;}}
+ stamp++;const h=[],T=idx(tx,ty);const push=(i,f)=>{h.push([f,i]);let k=h.length-1;while(k>0){const p=(k-1)>>1;if(h[p][0]<=h[k][0])break;[h[p],h[k]]=[h[k],h[p]];k=p;}};
+ const pop=()=>{const t=h[0],l=h.pop();if(h.length){h[0]=l;let k=0;for(;;){let a=2*k+1,b=a+1,m=k;if(a<h.length&&h[a][0]<h[m][0])m=a;if(b<h.length&&h[b][0]<h[m][0])m=b;if(m==k)break;[h[m],h[k]]=[h[k],h[m]];k=m;}}return t;};
+ const s0=idx(sx,sy);ST[s0]=stamp;G[s0]=0;CF[s0]=-1;push(s0,0);let n=0;
+ while(h.length&&n++<7000){const[,i]=pop();if(i==T)break;const x=i%N,y=(i/N)|0;
+  for(let d=0;d<8;d++){const dx=[1,-1,0,0,1,1,-1,-1][d],dy=[0,0,1,-1,1,-1,1,-1][d],X=x+dx,Y=y+dy;if(!walk(X,Y))continue;if(d>3&&(!walk(x+dx,y)||!walk(x,y+dy)))continue;
+   const j=idx(X,Y);const w=S.wear[(Y*2)*2*N+X*2]||0;const c=(d>3?1.414:1)*(objAt[j]&&objAt[j].k!='kelmas'?1.6:1)*(w>8?0.8:1);const g=G[i]+c;
+   if(ST[j]!=stamp||g<G[j]){ST[j]=stamp;G[j]=g;CF[j]=i;push(j,g+Math.hypot(X-tx,Y-ty));}}}
+ if(ST[T]!=stamp)return null;const path=[];for(let i=T;i!=-1;i=CF[i])path.push([i%N,(i/N)|0]);return path.reverse();}
+function smooth(p,off){let pts=p.map(([x,y],i)=>[x+.5+(i&&i<p.length-1?off[0]:0),y+.5+(i&&i<p.length-1?off[1]:0)]);
+ for(let k=0;k<2;k++){if(pts.length<3)break;const o=[pts[0]];for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];o.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75]);}o.push(pts[pts.length-1]);pts=o;}return pts;}
+// ---------- resources ----------
+const stores=()=>S.b.filter(b=>b.t=='sandelis'&&b.st!='site');
+function cap(){let c=0;for(const b of stores())c+=B.sandelis.scap[b.lv-1];return c;}
+const food=()=>S.res.mesa+S.res.zuvis;
+function nearest(list,x,y){let b=null,bd=1e9;for(const o of list){const d=door(o),dd=Math.hypot(d.x-x,d.y-y);if(dd<bd){bd=dd;b=o;}}return b;}
+function deposit(k,n){const c=cap();const room=Math.max(0,c-S.res[k]);const put=Math.min(room,n);S.res[k]+=put;if(put<n)S.hint.full=S.t;return put;}
+function takeFood(n){let g=0;while(g<n&&food()>=1){if(S.res.mesa>=S.res.zuvis)S.res.mesa--;else S.res.zuvis--;g++;}return g;}
+// ---------- villagers: actions ----------
+function release(p){const r=p.res;if(!r)return;p.res=null;
+ if(r.k=='obj')r.o.res=0;else if(r.k=='inb'){const b=bId(r.b);if(b&&b.site)b.site.inb[r.r]=Math.max(0,b.site.inb[r.r]-r.n);}else if(r.k=='deer'){r.o.res=0;r.o.st=0;}else if(r.k=='heal'){const s=S.p.find(q=>q.id==r.p);if(s)s.treat=0;}}
+function abort(p){release(p);p.q=[];p.path=null;}
+const GO=(x,y)=>({a:'go',x,y}),WAIT=(t,l,inside)=>({a:'w',t,l,inside}),FN=f=>({a:'f',f});
+const toB=b=>{const d=door(b);return GO(d.x,d.y);};
+function workMul(p){const h=home(p);return 0.7+0.5*((h?h.hap:50)/100);}
+const home=p=>bId(p.home);
+function stepP(p,dt){
+ if(p.ch)p.age+=dt/DAY;
+ p.hu=Math.min(100,p.hu+dt*100/130);
+ if(p.sick){p.sick-=dt;if(p.sick<=0){p.sick=0;}}
+ const a=p.q[0];if(!a){brain(p);return;}
+ if(a.a=='go'){
+  if(!p.path){const r=astar(p.x,p.y,a.x,a.y);if(!r){abort(p);p.idle=2;return;}p.path=smooth(r,p.off);p.pi=1;}
+  const sp=(p.ch?1.3:1.5)*(p.sick?0.6:1)*dt;let left=sp;
+  while(left>0&&p.pi<p.path.length){const[tx,ty]=p.path[p.pi],dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);
+   if(d<=left){p.x=tx;p.y=ty;left-=d;p.pi++;}else{p.x+=dx/d*left;p.y+=dy/d*left;left=0;}
+   const sx=dx-dy;if(Math.abs(sx)>0.01)p.fl=sx>0?1:-1;}
+  p.ph+=dt*9;p.in=0;p.mv=1;
+  const wi=((p.y*2)|0)*2*N+((p.x*2)|0);if(S.wear[wi]<100){S.wear[wi]+=dt*1.2;if(S.wear[wi]>5&&S.wear[wi]-dt*1.2<=5)wearDirty=true;}
+  if(p.pi>=p.path.length){p.q.shift();p.path=null;}
+ }else if(a.a=='w'){p.mv=0;p.in=a.inside?1:0;p.act=a.l||p.act;a.t-=dt;if(a.t<=0)p.q.shift();}
+ else{p.q.shift();const r=a.f(p);if(r===false)abort(p);}
+}
+function brain(p){
+ if(p.idle>0){p.idle-=0.1;p.q=[WAIT(1,'laukia')];return;}
+ const h=home(p);
+ if(p.sick){p.q=[...(h?[toB(h)]:[]),WAIT(3,'serga',1)];p.act='serga';return;}
+ if(p.carry){const s=nearest(stores(),p.x,p.y);if(s){p.q=[toB(s),FN(q=>{if(q.carry){if(q.carry.k=='food'){S.res.mesa+=q.carry.n;}else deposit(q.carry.k,q.carry.n);}q.carry=null;})];return;}p.carry=null;}
+ if(p.ch){
+  if(p.hu>60&&h&&h.pan>=1){p.q=[toB(h),WAIT(2,'valgo',1),FN(q=>{const hh=home(q);if(hh&&hh.pan>=1){hh.pan-=1;q.hu=0;}})];return;}
+  const d=h?door(h):{x:44,y:44};p.q=[GO(d.x+Math.round(rnd(-3,3)),d.y+Math.round(rnd(-2,3))),WAIT(rnd(2,5),'žaidžia')];p.act='žaidžia';return;}
+ // hunger / rest
+ if((p.hu>70||p.en<20)&&h){
+  const q=[];if(h.pan<1&&food()>=1){const s=nearest(stores(),p.x,p.y);if(s)q.push(toB(s),FN(o=>{const g=takeFood(2);if(g)o.carry={k:'food',n:g};}),toB(h),FN(o=>{const hh=home(o);if(o.carry&&hh){hh.pan+=o.carry.n;o.carry=null;}}));}
+  else q.push(toB(h));
+  q.push(WAIT(3,'valgo',1),FN(o=>{const hh=home(o);if(hh&&hh.pan>=1){hh.pan-=1;o.hu=0;}else o.hu=Math.min(o.hu,85);}));
+  if(p.en<50)q.push(WAIT(10,'ilsisi',1),FN(o=>{o.en=100;}));
+  p.q=q;p.act='eina namo';return;}
+ // women household
+ if(p.sex=='f'&&h&&h.st!='site'){
+  const res=S.p.filter(q=>q.home==h.id).length;
+  if(h.pan<Math.max(2,res)&&food()>=1){const s=nearest(stores(),p.x,p.y);if(s){p.q=[toB(s),FN(o=>{const g=takeFood(4);if(!g)return false;o.carry={k:'food',n:g};}),toB(h),FN(o=>{const hh=home(o);if(o.carry&&hh)hh.pan+=o.carry.n;o.carry=null;}),WAIT(4,'gamina valgį',1)];p.act='neša maistą';return;}}
+  if(h.wood<1.5&&S.res.m>=1){const s=nearest(stores(),p.x,p.y);if(s){p.q=[toB(s),FN(o=>{const g=Math.min(3,Math.floor(S.res.m));if(!g)return false;S.res.m-=g;o.carry={k:'woodh',n:g};}),toB(h),FN(o=>{const hh=home(o);if(o.carry&&hh)hh.wood+=o.carry.n;o.carry=null;})];p.act='neša malkas namo';return;}}
+  // feed: if men of the house are eating, stay home
+ }
+ const j=bId(p.job);
+ if(j){if(doJob(p,j))return;}
+ if(p.role){const b=bId(p.role);if(b&&b.site){builderTask(p,b);return;}p.role=0;}
+ if(!j&&carrierTask(p))return;
+ if(!j&&p.sex=='m'&&stoneTask(p))return;
+ if(p.sex=='f'&&h&&!j){p.q=[toB(h),WAIT(6,'gamina valgį',1)];p.act='namuose';return;}
+ const c=nearest(stores(),p.x,p.y)||h;if(c){const d=door(c);p.q=[GO(d.x+Math.round(rnd(-3,3)),d.y+Math.round(rnd(-1,3))),WAIT(rnd(3,6),'laisvas')];}else p.q=[WAIT(3,'laisvas')];p.act='laisvas';
+}
+function builderTask(p,b){p.q=[toB(b),FN(o=>{o.act='stato';}),WAIT(1,'stato'),FN(o=>{const bb=bId(o.role);if(!bb||!bb.site)return false;const s=bb.site;
+ const frac=(s.got.m+s.got.a)/Math.max(1,s.need.m+s.need.a);const lim=s.tot*frac;if(s.prog<lim){s.prog=Math.min(lim,s.prog+workMul(o));o.act='stato';}else o.act='laukia medžiagų';
+ if(s.prog>=s.tot-1e-6&&frac>=1)finishSite(bb);})];p.act='stato';}
+function finishSite(b){const s=b.site;b.lv=s.to;b.st='ok';b.site=null;const ns=B[b.t].size[b.lv-1];if(ns!=b.s){markB(b,0);b.s=ns;markB(b,b.id);}markB(b,b.id);
+ for(const p of S.p)if(p.role==b.id)p.role=0;reveal(b.x+b.s/2,b.y+b.s/2,B[b.t].rev+b.lv);toast((b.lv>1?'Patobulinta: ':'Pastatyta: ')+B[b.t].lv[b.lv-1]);save();}
+function carrierTask(p){
+ for(const b of S.b){if(!b.site)continue;const s=b.site;for(const r of['m','a']){const want=s.need[r]-s.got[r]-s.inb[r];if(want<=0||S.res[r]<1)continue;
+  const n=Math.min(want,p.sex=='m'?5:4,Math.floor(S.res[r]));const st=nearest(stores(),p.x,p.y);if(!st)return false;s.inb[r]+=n;p.res={k:'inb',b:b.id,r,n};
+  p.q=[toB(st),FN(o=>{const g=Math.min(n,Math.floor(S.res[r]));if(!g)return false;S.res[r]-=g;o.carry={k:r,n:g,site:1};}),toB(b),FN(o=>{const bb=bId(b.id);release(o);if(bb&&bb.site&&o.carry){bb.site.got[r]=Math.min(bb.site.need[r],bb.site.got[r]+o.carry.n);}else if(o.carry)S.res[r]+=o.carry.n;o.carry=null;})];p.act='neša '+RN[r];return true;}}
+ return false;}
+function stoneNeed(){let n=0;for(const b of S.b)if(b.site)n+=b.site.need.a-b.site.got.a;return n;}
+function stoneTask(p){if(S.res.a>=Math.min(cap(),Math.max(40,stoneNeed()+10)))return false;
+ let best=null,bd=1e9;for(const o of S.objs){if(o.amt<=0||o.res||!(o.k=='akmenys'||o.k=='uola'))continue;const d=Math.hypot(o.x-p.x,o.y-p.y);if(d<bd){bd=d;best=o;}}
+ if(!best||bd>40)return false;best.res=1;p.res={k:'obj',o:best};
+ p.q=[GO(best.x,best.y),WAIT(6/workMul(p),'skaldo akmenį'),FN(o=>{release(o);best.amt-=3;o.carry={k:'a',n:3};if(best.amt<=0)removeObj(best);})];p.act='renka akmenis';return true;}
+function removeObj(o){const i=S.objs.indexOf(o);if(i>=0)S.objs.splice(i,1);if(objAt[idx(o.x,o.y)]===o)objAt[idx(o.x,o.y)]=null;}
+function doJob(p,b){const d=door(b),lvm=1+0.2*(b.lv-1),m=workMul(p)*lvm;p.en-=0;
+ if(b.st=='site')return false;
+ if(b.t=='malkine'){
+  let best=null,bd=1e9;const RR=16+2*b.lv;for(const o of S.objs){if(o.res||!isTree(o)||o.grow)continue;const dd=Math.hypot(o.x-d.x,o.y-d.y);if(dd<bd&&dd<RR){bd=dd;best=o;}}
+  if(!best){p.q=[toB(b),WAIT(5,'nėra medžių',1)];p.act='nėra medžių';return true;}
+  best.res=1;p.res={k:'obj',o:best};
+  p.q=[GO(best.x,best.y),WAIT(5/m,'kerta medį'),FN(o=>{release(o);best.k='kelmas';best.stump=DAY*2;best.s=0.6;o.carry={k:'m',n:4+b.lv};o.en-=10;}),
+   ...(()=>{const s=nearest(stores(),best.x,best.y);return s?[toB(s),FN(o=>{if(o.carry)deposit('m',o.carry.n);o.carry=null;})]:[];})(),
+   FN(o=>{const bb=bId(b.id);if(bb&&bb.lv>=3&&R()<.5)plant(bb);}),toB(b),WAIT(2,'ilsisi',1)];p.act='kerta medžius';return true;}
+ if(b.t=='medziotojas'){
+  let best=null,bd=1e9;for(const o of S.deer){if(o.res)continue;const dd=Math.hypot(o.x-d.x,o.y-d.y);if(dd<bd&&dd<22+3*b.lv){bd=dd;best=o;}}
+  if(!best){p.q=[toB(b),WAIT(6,'nėra žvėrių',1)];p.act='nėra žvėrių';return true;}
+  best.res=1;p.res={k:'deer',o:best};
+  p.q=[GO(best.x,best.y),FN(o=>{if(Math.hypot(best.x-o.x,best.y-o.y)>3){release(o);return false;}best.st=1;}),WAIT(3/m,'medžioja'),FN(o=>{release(o);const i=S.deer.indexOf(best);if(i>=0)S.deer.splice(i,1);o.carry={k:'mesa',n:3+b.lv};o.en-=15;}),
+   FN(o=>{const s=nearest(stores(),o.x,o.y);if(s)o.q.unshift(toB(s),FN(q=>{if(q.carry)deposit('mesa',q.carry.n);q.carry=null;}),toB(b),WAIT(2,'ilsisi',1));})];p.act='medžioja';return true;}
+ if(b.t=='zvejas'){const w=b.fish||(b.fish=fishSpot(b));if(!w){p.q=[WAIT(5,'nėra vandens')];return true;}
+  p.q=[GO(w.lx,w.ly),FN(o=>{o.fl=(w.x-w.y)-(w.lx-w.ly)>0?1:-1;}),WAIT(9/m,'žvejoja'),FN(o=>{o.carry={k:'zuvis',n:2+b.lv};o.en-=10;}),
+   FN(o=>{const s=nearest(stores(),o.x,o.y);if(s)o.q.unshift(toB(s),FN(q=>{if(q.carry)deposit('zuvis',q.carry.n);q.carry=null;}),toB(b),WAIT(2,'ilsisi',1));})];p.act='žvejoja';return true;}
+ if(b.t=='zolininke'){const s=S.p.find(q=>q.sick&&!q.treat);
+  if(!s){p.q=[toB(b),WAIT(4,'ruošia vaistažoles',1)];p.act='ruošia vaistažoles';return true;}
+  s.treat=p.id;p.res={k:'heal',p:s.id};const sh=home(s);
+  p.q=[sh?toB(sh):GO(s.x,s.y),WAIT((b.lv>=5?3:6)/m,'gydo',1),FN(o=>{release(o);const q=S.p.find(z=>z.id==s.id);if(q){q.sick=0;q.treat=0;toast(q.nm+' pasveiko 🌿');}}),toB(b),WAIT(2,'',1)];p.act='gydo';return true;}
+ return false;}
+function isTree(o){return o.k=='pusis'||o.k=='pusys'||o.k=='azuolas'||o.k=='berzas';}
+function plant(b){const d=door(b);for(let k=0;k<20;k++){const x=d.x+Math.round(rnd(-6,6)),y=d.y+Math.round(rnd(-6,6));if(inM(x,y)&&walk(x,y)&&!objAt[idx(x,y)]&&'gpf'.includes(terr(x,y))&&Math.hypot(x-d.x,y-d.y)>2){const o={x,y,k:pick(['pusis','berzas','azuolas']),s:1,amt:0,grow:DAY*2};S.objs.push(o);objAt[idx(x,y)]=o;return;}}}
+function fishSpot(b){let best=null,bd=1e9;for(let y=b.y-5;y<b.y+b.s+5;y++)for(let x=b.x-5;x<b.x+b.s+5;x++){if(!inM(x,y)||terr(x,y)!='w'||BR.has(idx(x,y)))continue;
+ for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const lx=x+dx,ly=y+dy;if(walk(lx,ly)){const d=Math.hypot(lx-b.x-b.s/2,ly-b.y-b.s/2);if(d<bd){bd=d;best={x,y,lx,ly};}}}}return best;}
+// ---------- jobs assignment ----------
+function slots(){const out=[];for(const c of S.prio){
+ if(c=='statyba'){for(const b of S.b)if(b.site&&!S.p.some(p=>p.role==b.id))out.push({c,b,builder:1});}
+ else for(const b of S.b){const d=B[b.t];if(d.cat!=c||b.st=='site')continue;const n=d.wk[b.lv-1]-S.p.filter(p=>p.job==b.id).length;for(let i=0;i<n;i++)out.push({c,b});}}return out;}
+function catOf(p){if(p.role)return 'statyba';const j=bId(p.job);return j?B[j.t].cat:null;}
+function assign(){
+ for(const p of S.p){if(p.job&&!bId(p.job))p.job=0;if(p.role&&!(bId(p.role)||{}).site)p.role=0;
+  if(p.job){const b=bId(p.job);const n=S.p.filter(q=>q.job==b.id);if(n.length>B[b.t].wk[b.lv-1]&&n[n.length-1]==p)p.job=0;}}
+ for(const sl of slots()){
+  const ok=p=>!p.ch&&!p.sick&&(sl.b.t=='zolininke'?true:p.sex=='m');
+  let free=S.p.filter(p=>ok(p)&&!p.job&&!p.role);
+  if(sl.b.t=='zolininke'){const f=free.filter(p=>p.sex=='f');if(f.length)free=f;}
+  let cand=free.sort((a,b)=>Math.hypot(a.x-sl.b.x,a.y-sl.b.y)-Math.hypot(b.x-sl.b.x,b.y-sl.b.y))[0];
+  if(!cand){const pi=S.prio.indexOf(sl.c);let bestPi=pi;for(const p of S.p){if(!ok(p))continue;const c=catOf(p);if(!c)continue;const ci=S.prio.indexOf(c);if(ci>bestPi){bestPi=ci;cand=p;}}
+   if(cand){if(cand.role&&cand.role!=sl.b.id)cand.role=0;cand.job=0;}}
+  if(!cand)continue;
+  if(sl.builder)cand.role=sl.b.id;else cand.job=sl.b.id;
+  if(!cand.carry&&!cand.res&&!cand.fire){const a=cand.q[0];if(!a||a.a=='w'&&!a.inside)cand.q=[];}
+ }}
+// ---------- world tick ----------
+let acc1=0,acc2=0;
+function tick(dt){S.t+=dt;
+ for(const p of S.p)stepP(p,dt);
+ // houses
+ for(const b of S.b){if(b.t!='namas'||b.st=='site'&&!b.lv)continue;b.wood=Math.max(0,b.wood-dt/DAY*(1+0.25*(b.lv-1)));
+  if(b.fire>0){b.fire=Math.min(100,b.fire+dt*0.5);b.burn+=dt*b.fire/100*0.6;if(b.burn>=100)burnDown(b);}}
+ // objects
+ for(const o of S.objs){if(o.stump!=null){o.stump-=dt;if(o.stump<=0)removeObj(o);}if(o.grow){o.grow=Math.max(0,o.grow-dt);}}
+ deerTick(dt);
+ acc1+=dt;if(acc1>=1){acc1=0;perSec();}
+}
+function perSec(){assign();fireDispatch();
+ const day=Math.floor(S.t/DAY);
+ for(const b of S.b){if(b.t!='namas'||!b.lv)continue;hapCalc(b);
+  const res=S.p.filter(p=>p.home==b.id);const cap_=B.namas.cap[b.lv-1];
+  if(res.length<cap_&&res.some(p=>p.sex=='m'&&!p.ch)&&res.some(p=>p.sex=='f'&&!p.ch)&&b.pan>=1&&b.hap>=45&&(b.lastBirth??-9)<day-0&&R()<0.5/DAY*1.0*3){b.lastBirth=day;const k=spawnP(R()<.5?'m':'f',true,b);toast('Gimė vaikas – '+k.nm+' 👶');}
+  if(day>=3&&!S.b.some(q=>q.fire>0)&&b.st=='ok'&&R()<(b.hap>70?0.008:0.016)/DAY*S.b.filter(q=>q.t=='namas').length/Math.max(1,S.b.filter(q=>q.t=='namas').length)){b.fire=30;b.burn=0;toast('🔥 Gaisras! Dega '+B.namas.lv[b.lv-1].toLowerCase()+'!');}}
+ for(const p of S.p){if(p.ch&&p.age>=4){p.ch=false;toast(p.nm+' užaugo ir gali dirbti!');}
+  if(!p.sick&&S.t>DAY*1.5){const h=home(p);const hp=h?h.hap:50;if(R()<(hp>70?0.02:hp<40?0.06:0.035)/DAY){p.sick=DAY*2;p.treat=0;if(!p.fire)abort(p);p.q=[];toast(p.nm+' susirgo 🤒');}}}
+ // newcomers
+ S.newT+=1;const empty=S.b.find(b=>b.t=='namas'&&b.lv&&!S.p.some(p=>p.home==b.id));
+ if(empty&&food()>=6&&S.newT>15){S.newT=0;const st=stores()[0];let sx=48,sy=56;if(st){sx=Math.min(N-2,st.x+12);sy=Math.min(N-2,st.y+12);}
+  for(let r=0;r<6&&!walk(sx,sy);r++){sx--;sy--;}spawnP('m',false,empty,sx,sy);spawnP('f',false,empty,sx+1,sy);toast('Atsikraustė nauja šeima! 👨‍👩');}
+ if(S.t%10<1){for(let i=0;i<S.wear.length;i++)if(S.wear[i]>0)S.wear[i]*=0.997;wearDirty=true;}
+ if(S.t%8<1)save();}
+function hapCalc(b){let h=0;if(b.pan>=1)h+=30;else if(food()>=1)h+=10;if(b.wood>0)h+=25;h+=(b.lv-1)*5;
+ const c={x:b.x+b.s/2,y:b.y+b.s/2};b.well=S.b.some(w=>w.t=='sulinys'&&w.lv&&Math.hypot(w.x+.5-c.x,w.y+.5-c.y)<=B.sulinys.rad[w.lv-1]);if(b.well)h+=15;
+ b.herb=S.b.some(w=>w.t=='zolininke'&&w.lv&&Math.hypot(w.x+1-c.x,w.y+1-c.y)<=14);if(b.herb)h+=10;b.hap=Math.min(100,h+10);}
+function burnDown(b){b.fire=0;b.burn=0;b.pan=0;b.wood=0;toast('Namas sudegė…');
+ if(b.lv>1){const old=b.s;b.lv--;b.site=null;b.st='ok';const ns=B.namas.size[b.lv-1];if(ns!=old){markB(b,0);b.s=ns;markB(b,b.id);}}
+ else{b.lv=0;b.st='site';b.site=mkSite('namas',0);}}
+function fireDispatch(){const f=S.b.find(b=>b.fire>0);if(!f){for(const p of S.p)if(p.fire){p.fire=0;p.bucket=0;p.q=[];}return;}
+ const cnt=S.p.filter(p=>p.fire).length;if(cnt>=6)return;
+ const c=S.p.filter(p=>!p.ch&&!p.sick&&!p.fire).sort((a,b)=>Math.hypot(a.x-f.x,a.y-f.y)-Math.hypot(b.x-f.x,b.y-f.y)).slice(0,6-cnt);
+ for(const p of c){release(p);p.fire=f.id;p.q=fireLoop(p);p.path=null;}}
+function waterSrc(p){const w=nearest(S.b.filter(b=>b.t=='sulinys'&&b.lv),p.x,p.y);if(w)return{go:toB(w),t:2.2-0.3*(w.lv-1)};
+ let best=null,bd=1e9;for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(terr(x,y)=='w'&&!BR.has(idx(x,y))){const d=Math.hypot(x-p.x,y-p.y);if(d<bd){bd=d;best=[x,y];}}return best?{go:GO(best[0],best[1]),t:3}:null;}
+function fireLoop(p){const ws=waterSrc(p),f=bId(p.fire);if(!ws||!f)return[WAIT(1)];
+ return[ws.go,WAIT(ws.t,'semia vandenį'),FN(o=>{o.bucket=1;}),toB(f),WAIT(0.8,'gesina'),FN(o=>{o.bucket=0;const b=bId(o.fire);if(b&&b.fire>0){b.fire-=18;if(b.fire<=0){b.fire=0;toast('Gaisras užgesintas! 💧');}}
+  const bb=S.b.find(x=>x.fire>0);if(bb){o.fire=bb.id;o.q.push(...fireLoop(o));}else{o.fire=0;}})];}
+function deerTick(dt){
+ if(S.deer.length<12&&R()<dt/40){for(let k=0;k<30;k++){const x=(R()*N)|0,y=(R()*N)|0;if('fg'.includes(terr(x,y))&&(terr(x,y)=='f'||R()<.3)&&walk(x,y)&&!S.b.some(b=>Math.hypot(b.x-x,b.y-y)<8)){S.deer.push({x:x+.5,y:y+.5,tx:x+.5,ty:y+.5,w:0,fl:1});break;}}}
+ for(const d of S.deer){if(d.st)continue;d.w-=dt;if(d.w<=0){const tx=d.x+rnd(-3,3),ty=d.y+rnd(-3,3);if(inM(tx|0,ty|0)&&walk(tx|0,ty|0)&&'fg'.includes(terr(tx|0,ty|0))){d.tx=tx;d.ty=ty;}d.w=rnd(4,10);}
+  const dx=d.tx-d.x,dy=d.ty-d.y,l=Math.hypot(dx,dy);if(l>0.05){const s=Math.min(l,0.6*dt);d.x+=dx/l*s;d.y+=dy/l*s;if(Math.abs(dx-dy)>.01)d.fl=dx-dy>0?1:-1;d.mv=1;}else d.mv=0;}}
+// ---------- placement ----------
+function canPlace(t,x,y){const s=B[t].size[0];let water=false;
+ for(let i=0;i<s;i++)for(let j=0;j<s;j++){const X=x+i,Y=y+j;if(!inM(X,Y))return 'Už žemėlapio ribų';if(!S.fog[idx(X,Y)])return 'Ši vieta dar neatrasta';
+  const te=terr(X,Y);if(te=='w')return 'Negalima statyti ant vandens';if(te=='u'||te=='c')return 'Negalima statyti ant kalno';if(occ[idx(X,Y)])return 'Vieta užimta';const o=objAt[idx(X,Y)];if(o)return isTree(o)?'Čia auga medis':o.k=='kelmas'?'Čia kelmas':'Čia guli akmenys';if(BR.has(idx(X,Y)))return 'Čia tiltas';}
+ if(B[t].water){for(let i=-1;i<=s;i++)for(let j=-1;j<=s;j++){const X=x+i,Y=y+j;if(inM(X,Y)&&terr(X,Y)=='w')water=true;}if(!water)return 'Žvejo trobelė turi būti prie vandens';}
+ return '';}
+function canUpgrade(b){if(b.lv>=5)return 'Jau aukščiausias lygis';if(b.st!='ok')return 'Jau tobulinama';if(b.fire)return 'Dega!';
+ const ns=B[b.t].size[b.lv];if(ns>b.s){for(let i=0;i<ns;i++)for(let j=0;j<ns;j++){const X=b.x+i,Y=b.y+j;if(i<b.s&&j<b.s)continue;if(!inM(X,Y)||'wuc'.includes(terr(X,Y))||occ[idx(X,Y)]||objAt[idx(X,Y)]||BR.has(idx(X,Y)))return 'Reikia laisvos vietos šalia (2×2), į dešinę ir žemyn';}}return '';}
+function upgrade(b){const e=canUpgrade(b);if(e){toast(e);return;}const ns=B[b.t].size[b.lv];b.site=mkSite(b.t,b.lv);b.st='upg';if(ns>b.s){b.s=ns;markB(b,b.id);}toast('Tobulinimas pradėtas – gyventojai patys atneš medžiagas');save();}
+// ---------- save ----------
+function save(){try{const o={...S,wear:null,fog:null,p:S.p.map(p=>({...p,q:[],path:null,res:null,fire:0,bucket:0,treat:0,role:p.role})),b:S.b.map(b=>({...b,door:null,fish:null,site:b.site?{...b.site,inb:{m:0,a:0}}:null})),deer:S.deer.map(d=>({...d,res:0,st:0})),objs:S.objs.map(o=>({...o,res:0}))};
+ const w=[];for(let i=0;i<S.wear.length;i++)if(S.wear[i]>0.5)w.push(i,Math.round(S.wear[i]));o.w=w;let f='';for(let i=0;i<S.fog.length;i++)f+=S.fog[i];o.f=f;o.cam=cam;
+ localStorage.setItem('miestas_save',JSON.stringify(o));}catch(e){}}
+function load(){try{const s=localStorage.getItem('miestas_save');if(!s)return false;const o=JSON.parse(s);if(o.v!==VER)return false;
+ o.wear=new Float32Array(4*N*N);for(let i=0;i<o.w.length;i+=2)o.wear[o.w[i]]=o.w[i+1];o.fog=new Uint8Array(N*N);for(let i=0;i<N*N;i++)o.fog[i]=o.f.charCodeAt(i)==49?1:0;delete o.w;delete o.f;
+ S=o;rebuildGrids();if(o.cam)cam=o.cam;return true;}catch(e){console.warn(e);return false;}}
+// ---------- camera & render ----------
+let W=0,H=0,DPR=1,cam={x:0,y:0,z:0.45};
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';}
+const wpos=(x,y)=>[(x-y)*TW/2+WW/2,(x+y)*TH/2];
+function s2w(sx,sy){return[(sx-W/2)/cam.z+cam.x,(sy-H/2)/cam.z+cam.y];}
+function w2t(X,Y){const a=(X-WW/2)/(TW/2),b=Y/(TH/2);return[(a+b)/2,(b-a)/2];}
+function clampCam(){cam.z=Math.max(0.2,Math.min(1.3,cam.z));cam.x=Math.max(0,Math.min(WW,cam.x));cam.y=Math.max(0,Math.min(HH,cam.y));}
+const CH={};let chLoaded=[];
+function chunk(cx,cy){const k=cx+'_'+cy;let c=CH[k];if(c===undefined){if(!MAP.ch.includes(k)){CH[k]=null;return null;}c=new Image();c.src='g/'+k+'.webp';CH[k]=c;chLoaded.push(k);
+ if(chLoaded.length>48){const o=chLoaded.shift();delete CH[o];}}return c&&c.complete&&c.naturalWidth?c:null;}
+let blob=null;function mkBlob(){blob=document.createElement('canvas');blob.width=96;blob.height=48;const c=blob.getContext('2d');const g=c.createRadialGradient(48,24,2,48,24,46);g.addColorStop(0,'rgba(128,98,62,0.95)');g.addColorStop(0.55,'rgba(122,94,60,0.75)');g.addColorStop(1,'rgba(118,92,60,0)');c.setTransform(1,0,0,0.5,0,0);c.fillStyle=g;c.beginPath();c.arc(48,48,46,0,7);c.fill();c.setTransform(1,0,0,1,0,0);
+ for(let i=0;i<60;i++){c.fillStyle=`rgba(${90+R()*60|0},${70+R()*40|0},${45+R()*30|0},${R()*.35})`;const a=R()*6.28,r=R()*30;c.fillRect(48+Math.cos(a)*r,24+Math.sin(a)*r*.5,2,1.5);}}
+let build=null,sel=null,lastT=0,fps=60;
+function spriteDims(b,lv){const im=img(B[b.t].spr[lv-1]);if(!im)return null;const s=B[b.t].size[lv-1];const w=s>1?TW*s*1.08:TW*1.3;const h=im.height*w/im.width;
+ const[X,Y]=wpos(b.x+s-1,b.y+s-1);return{im,x:X-w/2,y:Y+TH-h+TH*0.12*s,w,h};}
+function render(){
+ ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#161a20';ctx.fillRect(0,0,W,H);
+ const z=cam.z;ctx.setTransform(DPR*z,0,0,DPR*z,DPR*(W/2-cam.x*z),DPR*(H/2-cam.y*z));
+ const[x0,y0]=s2w(0,0),[x1,y1]=s2w(W,H);
+ for(let cy=Math.max(0,Math.floor(y0/512));cy<=Math.floor(y1/512);cy++)for(let cx=Math.max(0,Math.floor(x0/512));cx<=Math.floor(x1/512);cx++){const c=chunk(cx,cy);if(c)ctx.drawImage(c,cx*512,cy*512,512.6,512.6);}
+ const cs=[w2t(x0,y0),w2t(x1,y0),w2t(x0,y1+500),w2t(x1,y1+500)];const tx0=Math.max(0,Math.floor(Math.min(...cs.map(c=>c[0])))-2),tx1=Math.min(N-1,Math.ceil(Math.max(...cs.map(c=>c[0])))+2),ty0=Math.max(0,Math.floor(Math.min(...cs.map(c=>c[1])))-2),ty1=Math.min(N-1,Math.ceil(Math.max(...cs.map(c=>c[1])))+2);
+ // bridge
+ for(const i of BR){const x=i%N,y=(i/N)|0;if(x<tx0||x>tx1||y<ty0||y>ty1)continue;const[X,Y]=wpos(x,y);ctx.fillStyle='#6b4a2c';ctx.beginPath();ctx.moveTo(X,Y+TH*0.2);ctx.lineTo(X+TW*0.4,Y+TH*0.4);ctx.lineTo(X,Y+TH*0.8);ctx.lineTo(X-TW*0.4,Y+TH*0.6);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(40,25,12,.7)';ctx.lineWidth=1.5;for(let k=1;k<6;k++){const f=k/6;ctx.beginPath();ctx.moveTo(X-TW*0.4+TW*0.4*f,Y+TH*0.6-TH*0.4*f);ctx.lineTo(X+TW*0.4*f,Y+TH*0.8-TH*0.4*f);ctx.stroke();}
+  ctx.fillStyle='#4a321c';ctx.fillRect(X-TW*0.42,Y+TH*0.55,4,-14);ctx.fillRect(X+TW*0.38,Y+TH*0.38,4,-14);}
+ // paths
+ if(!blob)mkBlob();
+ for(let y=ty0*2;y<=ty1*2+1;y++)for(let x=tx0*2;x<=tx1*2+1;x++){const w=S.wear[y*2*N+x];if(w>5){const[X,Y]=wpos((x+.5)/2,(y+.5)/2);ctx.globalAlpha=Math.min(0.9,(w-5)/25);ctx.drawImage(blob,X-TW*0.36,Y-TH*0.36,TW*0.72,TH*0.72);}}
+ ctx.globalAlpha=1;
+ // build grid
+ if(build){ctx.strokeStyle='rgba(255,255,255,0.22)';ctx.lineWidth=1/z;ctx.beginPath();for(let y=ty0;y<=ty1;y++)for(let x=tx0;x<=tx1;x++){if(!S.fog[idx(x,y)]||'wuc'.includes(terr(x,y)))continue;const[X,Y]=wpos(x,y);ctx.moveTo(X,Y);ctx.lineTo(X+TW/2,Y+TH/2);ctx.lineTo(X,Y+TH);ctx.lineTo(X-TW/2,Y+TH/2);ctx.closePath();}ctx.stroke();
+  if(build.x!=null){const s=B[build.t].size[0],ok=!canPlace(build.t,build.x,build.y);const P=[wpos(build.x,build.y),wpos(build.x+s,build.y),wpos(build.x+s,build.y+s),wpos(build.x,build.y+s)];
+   ctx.fillStyle=ok?'rgba(60,220,70,0.35)':'rgba(230,50,40,0.35)';ctx.strokeStyle=ok?'rgba(60,220,70,0.95)':'rgba(230,50,40,0.95)';ctx.lineWidth=3/z;ctx.beginPath();P.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]-0):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill();ctx.stroke();}}
+ if(sel&&bId(sel)){const b=bId(sel),s=b.s;const P=[wpos(b.x,b.y),wpos(b.x+s,b.y),wpos(b.x+s,b.y+s),wpos(b.x,b.y+s)];ctx.strokeStyle='rgba(255,230,120,.9)';ctx.lineWidth=2.5/z;ctx.beginPath();P.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.stroke();}
+ // drawables
+ const D=[];
+ for(let y=ty0;y<=ty1;y++)for(let x=tx0;x<=tx1;x++){const o=objAt[idx(x,y)];if(o&&S.fog[idx(x,y)]>0||o&&nearSeen(x,y))D.push([x+y+0.9,0,o]);}
+ const MC=MAP.MC,MR=MAP.MR;D.push([MC[0]+MR+MC[1]+MR+1,3,{k:'gora',x:MC[0]+MR,y:MC[1]+MR,s:2*MR+1}]);const CL=MAP.CL;D.push([CL[0]+CL[1]+2*CL[2],3,{k:'uolynas',x:CL[0]+CL[2]-1,y:CL[1]+CL[2]-1,s:CL[2]}]);
+ for(const b of S.b)D.push([b.x+b.y+2*b.s-1.5,2,b]);
+ for(const p of S.p)if(!p.in&&seen(p.x,p.y))D.push([p.x+p.y,1,p]);
+ for(const d of S.deer)if(seen(d.x,d.y))D.push([d.x+d.y,4,d]);
+ D.sort((a,b)=>a[0]-b[0]);
+ const top=[];
+ for(const[,k,o]of D){
+  if(k==0){const im=img(o.k);if(!im)continue;const[X,Y]=wpos(o.x,o.y);let sc=o.s;if(o.grow)sc*=0.35+0.65*(1-o.grow/(DAY*2));const w=TW*sc*(o.k=='kelmas'?0.5:0.75),h=im.height*w/im.width;ctx.drawImage(im,X-w/2,Y+TH*0.75-h,w,h);}
+  else if(k==3){const im=img(o.k);if(!im)continue;const[X,Y]=wpos(o.x,o.y);const w=TW*o.s,h=im.height*w/im.width;ctx.drawImage(im,X-w/2,Y+TH-h+TH*0.05*o.s,w,h);}
+  else if(k==2)drawB(o,top);
+  else if(k==1)drawP(o);
+  else if(k==4){const im=img('elnias');if(!im)continue;const[X,Y]=wpos(o.x,o.y);const w=TW*0.42,h=im.height*w/im.width;ctx.save();ctx.translate(X,Y+TH*0.2);if(o.fl<0)ctx.scale(-1,1);ctx.drawImage(im,-w/2,-h+(o.mv?Math.sin(S.t*8)*1:0),w,h);ctx.restore();}}
+ // fish ripples
+ for(const b of S.b){if(b.t!='zvejas'||!b.lv)continue;const f=b.fish||(b.fish=fishSpot(b));if(!f)continue;const[X,Y]=wpos(f.x+.5,f.y+.5);for(let k=0;k<2;k++){const ph=((S.t*0.5+k*0.5)%1);ctx.strokeStyle=`rgba(230,245,255,${0.7*(1-ph)})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(X,Y,4+ph*16,2+ph*8,0,0,7);ctx.stroke();}
+  if(Math.sin(S.t*1.3+b.id)>0.97){ctx.fillStyle='#c9d6dc';ctx.beginPath();ctx.ellipse(X+6,Y-6,5,2,-.6,0,7);ctx.fill();}}
+ // fog
+ if(fogDirty)buildFog();ctx.save();ctx.transform(TW/2,TH/2,-TW/2,TH/2,WW/2,0);ctx.imageSmoothingEnabled=true;ctx.drawImage(fogCv,0,0);ctx.restore();
+ // overlays
+ for(const f of top)f();
+ if(build&&build.x!=null){const b={t:build.t,x:build.x,y:build.y};const d=spriteDims(b,1);if(d){ctx.globalAlpha=0.6;ctx.drawImage(d.im,d.x,d.y,d.w,d.h);ctx.globalAlpha=1;}}
+}
+function nearSeen(x,y){return false;}
+function drawB(b,top){const z=cam.z;let d;
+ if(b.st=='site'){const s=b.s,sc=img('statybviete');const t=b.site.to;const dd=spriteDims(b,t);const[X,Y]=wpos(b.x+s-1,b.y+s-1);const pr=b.site.prog/b.site.tot;
+  if(dd&&pr>0.02){const f=Math.min(1,pr);ctx.drawImage(dd.im,0,dd.im.height*(1-f),dd.im.width,dd.im.height*f,dd.x,dd.y+dd.h*(1-f),dd.w,dd.h*f);}
+  if(sc){const w=TW*s*1.05,h=sc.height*w/sc.width;ctx.globalAlpha=1-0.6*pr;ctx.drawImage(sc,X-w/2,Y+TH-h+TH*0.1*s,w,h);ctx.globalAlpha=1;}
+  d=dd;}
+ else{d=spriteDims(b,b.lv);if(d)ctx.drawImage(d.im,d.x,d.y,d.w,d.h);
+  if(b.st=='upg'){const sc=img('statybviete');if(sc&&d){const w=d.w*0.8,h=sc.height*w/sc.width;ctx.globalAlpha=0.85;ctx.drawImage(sc,d.x+d.w*0.1,d.y+d.h-h*0.95,w,h);ctx.globalAlpha=1;}}}
+ if(!d)return;
+ if(b.fire>0){top.push(()=>drawFire(b,d));}
+ top.push(()=>{const icons=[];if(b.st=='site'||b.st=='upg'){const s=b.site,pr=Math.floor(100*s.prog/s.tot);icons.push('🔨'+pr+'%');}
+  if(b.t=='namas'&&b.lv){if(b.pan<1&&food()<1)icons.push('🍖');if(b.wood<=0)icons.push('🪵');if(b.well===false)icons.push('💧');if(S.p.some(p=>p.home==b.id&&p.sick))icons.push('🤒');}
+  else if(B[b.t].wk&&b.st!='site'&&!S.p.some(p=>p.job==b.id))icons.push('💤');
+  const cx=d.x+d.w/2;let y=d.y+d.h*0.08;const sz=13/z;
+  if(icons.length){ctx.font=`${sz}px system-ui,sans-serif`;ctx.textAlign='center';const txt=icons.join(' ');const tw=ctx.measureText(txt).width+10;ctx.fillStyle='rgba(30,20,10,.65)';rr(cx-tw/2,y-sz*1.15,tw,sz*1.4,6);ctx.fillStyle='#fff';ctx.fillText(txt,cx,y);}
+  if(B[b.t].cat&&b.lv&&z>0.28){const ex=d.x+d.w*0.18,ey=d.y+d.h*0.82,r=11/z;ctx.fillStyle='rgba(92,60,30,.92)';ctx.strokeStyle='#e7c98f';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(ex,ey,r,0,7);ctx.fill();ctx.stroke();ctx.font=`${r*1.15}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(B[b.t].ic,ex,ey+1);ctx.textBaseline='alphabetic';}});}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.fill();}
+function drawFire(b,d){const n=6,I=b.fire/100;for(let i=0;i<n;i++){const fx=d.x+d.w*(0.25+0.5*((i*0.37+0.1)%1)),fy=d.y+d.h*(0.35+0.25*((i*0.61)%1));const fl=Math.sin(S.t*12+i*2)*0.2+1,h=(18+30*I)*fl,w=h*0.5;
+ const g=ctx.createRadialGradient(fx,fy-h*0.3,1,fx,fy-h*0.3,h*0.7);g.addColorStop(0,'rgba(255,240,150,.95)');g.addColorStop(0.4,'rgba(255,140,30,.85)');g.addColorStop(1,'rgba(200,40,10,0)');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(fx,fy-h*0.3,w,h*0.7,0,0,7);ctx.fill();}
+ for(let i=0;i<5;i++){const ph=(S.t*0.4+i/5)%1;ctx.fillStyle=`rgba(60,55,55,${0.45*(1-ph)})`;ctx.beginPath();ctx.arc(d.x+d.w*0.5+Math.sin(ph*6+i)*10,d.y+d.h*0.3-ph*90,8+ph*22,0,7);ctx.fill();}}
+function drawP(p){let n;if(p.ch)n=p.sex=='m'?'berniukas':'mergaite';else if(p.sex=='m'){n=p.bucket?'vyras_kibiras':p.carry?({m:'vyras_malkos',woodh:'vyras_malkos',mesa:'medziotojas_elnias',zuvis:'vyras_zuvys',food:'vyras_zuvys',a:'vyras'}[p.carry.k]):p.role&&p.act=='stato'?'statybininkas_lentos':'vyras';}else n=p.carry||p.bucket?'moteris_krepsys':'moteris';
+ const im=img(n);if(!im)return;const[X,Y]=wpos(p.x,p.y);const w=TW*(p.ch?0.3:0.4)*(n=='medziotojas_elnias'?1.35:1),h=im.height*w/im.width;const bob=p.mv?-Math.abs(Math.sin(p.ph))*2.5:0;
+ ctx.save();ctx.translate(X,Y+TH*0.12+bob);if(p.fl<0)ctx.scale(-1,1);if(p.act=='kerta medį'||p.act=='skaldo akmenį'||p.act=='stato')ctx.rotate(Math.sin(S.t*8)*0.06);
+ ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(0,0,w*0.35,w*0.14,0,0,7);ctx.fill();ctx.drawImage(im,-w/2,-h,w,h);
+ if(p.carry&&p.carry.k=='a'&&p.sex=='m'){ctx.fillStyle='#8d8a84';ctx.strokeStyle='#55524d';ctx.beginPath();ctx.ellipse(w*0.1,-h*0.55,w*0.28,w*0.2,0.3,0,7);ctx.fill();ctx.stroke();}
+ if(p.act=='žvejoja'&&!p.mv){ctx.strokeStyle='#5a3d22';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(w*0.2,-h*0.6);ctx.lineTo(w*1.4,-h*0.95);ctx.stroke();ctx.strokeStyle='rgba(230,230,230,.7)';ctx.lineWidth=0.7;ctx.beginPath();ctx.moveTo(w*1.4,-h*0.95);ctx.lineTo(w*1.5,0);ctx.stroke();}
+ ctx.restore();
+ if(p.sick&&!p.in){ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('🤒',X,Y-h);}}
+// ---------- UI ----------
+function toast(t){const e=document.createElement('div');e.className='toast';e.textContent=t;$('toasts').appendChild(e);setTimeout(()=>e.classList.add('out'),2600);setTimeout(()=>e.remove(),3200);while($('toasts').children.length>3)$('toasts').firstChild.remove();}
+function fmt(n){return Math.floor(n);}
+function costTxt(c){return [c.m?`🪵${c.m}`:'',c.a?`🪨${c.a}`:''].filter(Boolean).join(' ');}
+function buildMenu(){const m=$('buildbar');m.innerHTML='';for(const t of ORDER){const d=B[t];const e=document.createElement('button');e.className='bcard';e.dataset.t=t;
+ e.innerHTML=`<img src="img/${d.spr[0]}.webp"><b>${d.n}</b><small>${costTxt(d.cost[0])}</small>`;e.onclick=()=>startBuild(t);m.appendChild(e);}}
+function startBuild(t){closePop();build={t,x:null,y:null};$('buildbar').classList.add('hidden');$('buildmode').classList.remove('hidden');
+ const[a,b]=w2t(cam.x,cam.y);build.x=Math.floor(a)-(B[t].size[0]>>1);build.y=Math.floor(b)-(B[t].size[0]>>1);updBuild();}
+function updBuild(){const e=canPlace(build.t,build.x,build.y);$('bmText').textContent=e?('✖ '+e):`✔ ${B[build.t].n} – ${costTxt(B[build.t].cost[0])}. Bakstelėkite kitą vietą arba patvirtinkite.`;$('bmOk').disabled=!!e;}
+function endBuild(){build=null;$('buildbar').classList.remove('hidden');$('buildmode').classList.add('hidden');}
+$('bmOk').onclick=()=>{if(!build)return;const e=canPlace(build.t,build.x,build.y);if(e){toast(e);return;}addB(build.t,build.x,build.y,0);toast('Statybvietė pažymėta – gyventojai patys atneš medžiagas ir pastatys');save();endBuild();};
+$('bmNo').onclick=endBuild;
+function jobTitle(p){if(p.ch)return 'vaikas';if(p.sick)return 'serga';if(p.fire)return 'gesina gaisrą';if(p.role)return 'statybininkas';const j=bId(p.job);if(j)return {malkine:'medkirtys',medziotojas:'medžiotojas',zvejas:'žvejys',zolininke:p.sex=='f'?'žolininkė':'žolininkas'}[j.t];return p.sex=='f'?'šeimininkė':'nešikas';}
+function openPop(b){sel=b.id;renderPop();$('pop').classList.remove('hidden');}
+function closePop(){sel=null;$('pop').classList.add('hidden');}
+function renderPop(){const b=bId(sel);if(!b){closePop();return;}const d=B[b.t];let h=`<div class="ph"><img src="img/${d.spr[Math.max(0,b.lv-1)]}.webp"><div><h3>${d.n}</h3><div class="sub">${b.lv?`${b.lv} lygis iš 5 – ${d.lv[b.lv-1]}`:'Statoma'}</div></div><button class="x" id="popX">✕</button></div>`;
+ if(b.site){const s=b.site;h+=`<div class="row">🔨 ${b.st=='upg'?'Tobulinama į '+s.to+' lygį':'Statoma'}: ${Math.floor(100*s.prog/s.tot)}%</div><div class="row">Atnešta: 🪵${s.got.m}/${s.need.m}${s.need.a?` 🪨${s.got.a}/${s.need.a}`:''}</div>`;
+  const bl=S.p.find(p=>p.role==b.id);h+=`<div class="row">${bl?'Statybininkas: '+bl.nm:'⚠ Nėra laisvo vyro statybininko'}</div>`;
+  const miss=[];if(S.res.m<s.need.m-s.got.m-s.inb.m)miss.push('malkų');if(S.res.a<s.need.a-s.got.a-s.inb.a)miss.push('akmens');if(miss.length)h+=`<div class="row warn">Sandėlyje trūksta ${miss.join(' ir ')}</div>`;}
+ if(b.t=='namas'&&b.lv){const r=S.p.filter(p=>p.home==b.id);h+=`<div class="row">👪 Gyventojai: ${r.length}/${d.cap[b.lv-1]}</div><div class="fam">${r.map(p=>`<span>${p.ch?'🧒':p.sex=='m'?'👨':'👩'} ${p.nm} – ${jobTitle(p)}</span>`).join('')||'<i>Tuščias – netrukus atsikraustys šeima</i>'}</div>`;
+  h+=`<div class="row">${b.hap>=70?'😊':b.hap>=45?'😐':'☹️'} Pasitenkinimas: ${Math.round(b.hap)}%</div><div class="needs"><span class="${b.pan>=1?'ok':'no'}">🍖 Maistas namuose: ${fmt(b.pan)}</span><span class="${b.wood>0?'ok':'no'}">🪵 Malkos šildymui: ${b.wood.toFixed(1)}</span><span class="${b.well?'ok':'no'}">💧 Šulinys netoli</span><span class="${b.herb?'ok':'no'}">🌿 Žolininkė netoli</span></div>`;}
+ if(d.wk&&b.lv){const w=S.p.filter(p=>p.job==b.id);h+=`<div class="row">👷 Darbininkai: ${w.length}/${d.wk[b.lv-1]}</div><div class="fam">${w.map(p=>`<span>${p.sex=='m'?'👨':'👩'} ${p.nm} – ${p.sick?'serga':p.act||'dirba'}</span>`).join('')||'<i>Nėra laisvų gyventojų – pastatas stovi tuščias</i>'}</div>`;}
+ if(b.t=='sandelis'&&b.lv)h+=`<div class="row">Talpa: ${d.scap[b.lv-1]} kiekvieno ištekliaus</div>`;
+ if(b.t=='sulinys'&&b.lv)h+=`<div class="row">Aptarnauja namus ${d.rad[b.lv-1]} langelių spinduliu</div>`;
+ if(b.fire)h+=`<div class="row warn">🔥 Dega! Gyventojai neša vandenį.</div>`;
+ h+=`<div class="desc">${d.d}</div>`;
+ if(b.lv&&b.lv<5&&b.st=='ok'){const e=canUpgrade(b);h+=`<button class="up" id="popUp" ${e?'disabled':''}>⬆ Tobulinti į ${b.lv+1} lygį: ${d.lv[b.lv]}<br><small>${costTxt(d.cost[b.lv])}${d.cap?` · ${d.cap[b.lv]} gyventojai`:''}${d.wk?` · ${d.wk[b.lv]} darbininkai`:''}${e?' · '+e:''}</small></button>`;}
+ else if(b.lv==5)h+=`<div class="row">⭐ Aukščiausias lygis</div>`;
+ $('pop').innerHTML=h;$('popX').onclick=closePop;const u=$('popUp');if(u)u.onclick=()=>{upgrade(b);renderPop();};}
+function renderPrio(){const l=$('prioList');l.innerHTML='';S.prio.forEach((c,i)=>{const n=S.p.filter(p=>catOf(p)==c).length;const e=document.createElement('div');e.className='prow';e.innerHTML=`<b>${i+1}.</b> ${CATN[c]} <small>(${n} dirba)</small><span><button data-i="${i}" data-d="-1">▲</button><button data-i="${i}" data-d="1">▼</button></span>`;l.appendChild(e);});
+ l.querySelectorAll('button').forEach(bt=>bt.onclick=()=>{const i=+bt.dataset.i,j=i+ +bt.dataset.d;if(j<0||j>=S.prio.length)return;[S.prio[i],S.prio[j]]=[S.prio[j],S.prio[i]];renderPrio();save();});}
+$('btnPrio').onclick=()=>{renderPrio();$('prio').classList.toggle('hidden');};$('prioX').onclick=()=>$('prio').classList.add('hidden');
+$('btnMenu').onclick=()=>$('menu').classList.toggle('hidden');$('menuX').onclick=()=>$('menu').classList.add('hidden');
+$('btnNew').onclick=()=>{if(confirm('Pradėti naują žaidimą? Dabartinis miestas bus ištrintas.')){localStorage.removeItem('miestas_save');newGame();centerStart();$('menu').classList.add('hidden');save();}};
+function hint(){const has=t=>S.b.some(b=>b.t==t);let h='';
+ if(S.b.some(b=>b.fire))h='🔥 Gaisras! Gyventojai patys neša vandenį iš artimiausio šulinio.';
+ else if(S.hint.full&&S.t-S.hint.full<20)h='📦 Sandėlis pilnas – patobulinkite jį arba pastatykite dar vieną.';
+ else if(!has('malkine'))h='🪓 Pastatykite malkinę – gyventojai patys kirs medžius.';
+ else if(!has('medziotojas')&&!has('zvejas'))h='🍖 Pastatykite medžiotojo namelį arba žvejo trobelę prie upės – reikės maisto.';
+ else if(!has('sulinys'))h='💧 Pastatykite šulinį – namai šalia jo laimingesni, o iš jo gesinami gaisrai.';
+ else if(food()<5)h='⚠ Baigiasi maistas – reikia daugiau medžiotojų ar žvejų (prioritetai).';
+ else if(S.b.some(b=>b.site)&&!S.p.some(p=>p.role))h='🔨 Nėra laisvo vyro statybai – pakeiskite prioritetus arba palaukite.';
+ else if(S.p.some(p=>p.sick)&&!has('zolininke'))h='🤒 Kažkas serga – žolininkės trobelė pagydytų greičiau.';
+ else if(S.b.some(b=>b.t=='namas'&&b.lv&&!S.p.some(p=>p.home==b.id)))h='🏠 Į tuščią namą netrukus atsikraustys nauja šeima.';
+ else if(!S.b.some(b=>b.t=='namas'&&b.lv>1))h='⬆ Bakstelėkite pastatą, kad jį patobulintumėte.';
+ $('hint').textContent=h;$('hint').classList.toggle('hidden',!h);}
+function hud(){const c=cap();$('vM').textContent=fmt(S.res.m);$('vA').textContent=fmt(S.res.a);$('vMe').textContent=fmt(S.res.mesa);$('vZ').textContent=fmt(S.res.zuvis);$('vCap').textContent=c;
+ const ad=S.p.filter(p=>!p.ch);$('vV').textContent=ad.filter(p=>p.sex=='m').length;$('vF').textContent=ad.filter(p=>p.sex=='f').length;$('vK').textContent=S.p.filter(p=>p.ch).length;$('vDay').textContent=Math.floor(S.t/DAY)+1;
+ const hs=S.b.filter(b=>b.t=='namas'&&b.lv);const hp=hs.length?hs.reduce((a,b)=>a+b.hap,0)/hs.length:0;$('vH').textContent=(hp>=70?'😊':hp>=45?'😐':'☹️')+Math.round(hp)+'%';}
+// ---------- input ----------
+const ptr=new Map();let drag=null,pinch=null,moved=false;
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;
+ if(ptr.size==1)drag={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y};
+ if(ptr.size==2){const[a,b]=[...ptr.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),z:cam.z,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,cx:cam.x,cy:cam.y};drag=null;moved=true;}});
+cv.addEventListener('pointermove',e=>{if(!ptr.has(e.pointerId))return;ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pinch&&ptr.size>=2){const[a,b]=[...ptr.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+  const wx=(pinch.mx-W/2)/pinch.z+pinch.cx,wy=(pinch.my-H/2)/pinch.z+pinch.cy;cam.z=Math.max(0.2,Math.min(1.3,pinch.z*d/pinch.d));cam.x=wx-(mx-W/2)/cam.z;cam.y=wy-(my-H/2)/cam.z;clampCam();}
+ else if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>8)moved=true;if(moved){cam.x=drag.cx-dx/cam.z;cam.y=drag.cy-dy/cam.z;clampCam();}}});
+function up(e){if(!ptr.has(e.pointerId))return;ptr.delete(e.pointerId);if(ptr.size<2)pinch=null;if(ptr.size==0){if(!moved&&drag)tap(e.clientX,e.clientY);drag=null;}
+ else if(ptr.size==1){const[a]=[...ptr.values()];drag={x:a.x,y:a.y,cx:cam.x,cy:cam.y};}}
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('wheel',e=>{e.preventDefault();const[wx,wy]=s2w(e.clientX,e.clientY);cam.z*=Math.exp(-e.deltaY*0.0015);clampCam();cam.x=wx-(e.clientX-W/2)/cam.z;cam.y=wy-(e.clientY-H/2)/cam.z;clampCam();},{passive:false});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+function tap(sx,sy){const[X,Y]=s2w(sx,sy);const[tx,ty]=w2t(X,Y);
+ if(build){const s=B[build.t].size[0];build.x=Math.floor(tx)-(s>>1);build.y=Math.floor(ty)-(s>>1);updBuild();return;}
+ let hit=null;const list=[...S.b].sort((a,b)=>(b.x+b.y+2*b.s)-(a.x+a.y+2*a.s));
+ for(const b of list){const d=b.st=='site'?{x:wpos(b.x,b.y)[0]-TW*b.s/2,y:wpos(b.x,b.y)[1]-TH*b.s,w:TW*b.s,h:TH*b.s*2}:spriteDims(b,b.lv);if(!d)continue;if(X>d.x+d.w*0.12&&X<d.x+d.w*0.88&&Y>d.y+d.h*0.1&&Y<d.y+d.h){hit=b;break;}}
+ if(!hit&&inM(tx|0,ty|0)){const o=occ[idx(tx|0,ty|0)];if(o)hit=bId(o);}
+ if(hit)openPop(hit);else closePop();}
+// ---------- loop ----------
+let speed=1,paused=false;
+function frame(t){const dt=Math.min(0.1,(t-lastT)/1000||0.016);lastT=t;fps=fps*0.95+0.05/Math.max(dt,1e-3);
+ if(!paused){let g=dt*speed;while(g>0){const s=Math.min(0.1,g);tick(s);g-=s;}}
+ render();if(t-(frame.h||0)>400){frame.h=t;hud();hint();if(sel&&!$('pop').classList.contains('hidden'))renderPop();}requestAnimationFrame(frame);}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save();paused=true;}else{paused=false;lastT=performance.now();}});
+addEventListener('pagehide',save);addEventListener('resize',resize);
+function centerStart(){const st=S.b.find(b=>b.t=='sandelis')||{x:44,y:40};const[X,Y]=wpos(st.x+1,st.y);cam={x:X,y:Y,z:0.45};}
+window.__dbg={get S(){return S},speed:k=>speed=k,tick:(sec)=>{for(let i=0;i<sec*10;i++)tick(0.1);},fps:()=>fps,cam:()=>cam,setCam:(x,y,z)=>{const[X,Y]=wpos(x,y);cam={x:X,y:Y,z:z||cam.z};},
+ place:(t,x,y)=>{const e=canPlace(t,x,y);if(e)return e;addB(t,x,y,0);return 'ok';},canPlace,upgrade:id=>upgrade(bId(id)),save,load,fire:id=>{const b=bId(id);b.fire=30;},sick:id=>{const p=S.p.find(q=>q.id==id);p.sick=DAY*2;abort(p);},reveal,openPop:id=>openPop(bId(id)),startBuild,tap,w2s:(x,y)=>{const[X,Y]=wpos(x,y);return[(X-cam.x)*cam.z+W/2,(Y-cam.y)*cam.z+H/2];}};
+fetch('map.json').then(r=>r.json()).then(m=>{MAP=m;N=m.N;TER=m.T;WW=N*TW;HH=N*TH;
+ for(let x=0;x<N;x++)if(TER[44][x]=='w'&&x>25&&x<40)BR.add(idx(x,44));
+ resize();buildMenu();if(!load()){newGame();centerStart();}clampCam();
+ for(const t of ['vyras','moteris','berniukas','mergaite','vyras_malkos','vyras_zuvys','vyras_kibiras','medziotojas_elnias','statybininkas_lentos','moteris_krepsys','elnias','statybviete','gora','uolynas','pusis','pusys','azuolas','berzas','krumas','akmenys','uola','kelmas'])img(t);
+ for(const t of ORDER)for(const s of B[t].spr)img(s);
+ $('loading').remove();requestAnimationFrame(frame);});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+})();
