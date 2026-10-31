@@ -146,15 +146,21 @@ function stepP(p,dt){
   p.ph+=dt*9;p.in=0;p.mv=1;
   const wi=((p.y*2)|0)*2*N+((p.x*2)|0);if(S.wear[wi]<100){S.wear[wi]+=dt*1.2;if(S.wear[wi]>5&&S.wear[wi]-dt*1.2<=5)wearDirty=true;}
   if(p.pi>=p.path.length){p.q.shift();p.path=null;}
+ }else if(a.a=='st'){const dx=a.x-p.x,dy=a.y-p.y,d=Math.hypot(dx,dy),st=(p.ch?1.0:1.1)*dt;if(Math.abs(dx-dy)>.01)p.fl=dx-dy>0?1:-1;if(Math.abs(dx+dy)>.01)p.bk=dx+dy<0?1:0;
+  if(a.fi)p.fade=Math.max(0,(p.fade||0)-dt*3);else p.fade=0;
+  if(d<=st){p.x=a.x;p.y=a.y;p.mv=0;p.fade=0;p.q.shift();}else{p.x+=dx/d*st;p.y+=dy/d*st;p.mv=1;p.ph+=dt*9;}
  }else if(a.a=='w'){p.mv=0;
-  // v11: visibly step through the door before disappearing inside
-  if(a.inside&&!a.ent&&!p.in){if(a.ex==null){const b=S.b.find(q=>q.st!='site'&&q.lv&&Math.hypot(door(q).x+.5-p.x,door(q).y+.5-p.y)<1.3);if(b){const dx=b.x+b.s/2-p.x,dy=b.y+b.s/2-p.y,l=Math.hypot(dx,dy)||1,k=Math.min(1,l)/l;a.ox=p.x;a.oy=p.y;a.ex=p.x+dx*k;a.ey=p.y+dy*k;a.d0=Math.min(1,l);}else a.ent=1;}
-   if(!a.ent){const dx=a.ex-p.x,dy=a.ey-p.y,d=Math.hypot(dx,dy),st=1.2*dt;if(Math.abs(dx-dy)>.01)p.fl=dx-dy>0?1:-1;if(Math.abs(dx+dy)>.01)p.bk=dx+dy<0?1:0;
-    if(d<=st){a.ent=1;p.x=a.ox;p.y=a.oy;p.fade=0;}else{p.x+=dx/d*st;p.y+=dy/d*st;p.mv=1;p.ph+=dt*9;p.fade=Math.max(0,1-(d-st)/a.d0)*0.85;p.act=a.l||p.act;return;}}}
+  // v12: walk visibly across the yard to the painted door, fade only on the threshold
+  if(a.inside&&!a.ent&&!p.in){if(a.ex==null){let b=null,bd=1.3;for(const q of S.b){if(q.st=='site'||!q.lv)continue;const dd=Math.hypot(door(q).x+.5-p.x,door(q).y+.5-p.y)-(q.id==p.home?0.3:0);if(dd<bd){bd=dd;b=q;}}if(b){const ad=artDoor(b);a.ox=p.x;a.oy=p.y;a.bid=b.id;if(ad){a.ex=ad.x;a.ey=ad.y;a.ha=1;if(!hidden(ad.x+0.1,ad.y+0.8,b)){a.wx=ad.x+0.1;a.wy=ad.y+0.8;}}else{const dx=b.x+b.s/2-p.x,dy=b.y+b.s/2-p.y,l=Math.hypot(dx,dy)||1,k=Math.min(0.8,l)/l;a.ex=p.x+dx*k;a.ey=p.y+dy*k;}}else a.ent=1;}
+   if(!a.ent&&a.wx!=null){const dx=a.wx-p.x,dy=a.wy-p.y,d=Math.hypot(dx,dy),st=1.1*dt;if(Math.abs(dx-dy)>.01)p.fl=dx-dy>0?1:-1;if(Math.abs(dx+dy)>.01)p.bk=dx+dy<0?1:0;if(d<=st){p.x=a.wx;p.y=a.wy;a.wx=null;}else{p.x+=dx/d*st;p.y+=dy/d*st;}p.mv=1;p.ph+=dt*9;p.fade=0;p.act=a.l||p.act;return;}
+   if(!a.ent){const dx=a.ex-p.x,dy=a.ey-p.y,d=Math.hypot(dx,dy),st=1.1*dt;if(Math.abs(dx-dy)>.01)p.fl=dx-dy>0?1:-1;if(Math.abs(dx+dy)>.01)p.bk=dx+dy<0?1:0;
+    if(d<=st){a.ent=1;p.x=a.ex;p.y=a.ey;p.fade=0;}else{p.x+=dx/d*st;p.y+=dy/d*st;p.mv=1;p.ph+=dt*9;p.fade=d<0.35?(1-d/0.35)*0.9:0;p.act=a.l||p.act;return;}}}
+  if(a.inside&&a.ent&&a.ex!=null&&a.t-dt<=0){p.q.shift();p.in=0;p.fade=0.9;p.q.unshift(...(a.ha&&!hidden(a.ex+0.1,a.ey+0.8,bId(a.bid))?[{a:'st',x:a.ex+0.1,y:a.ey+0.8,fi:1}]:[]),{a:'st',x:a.ox,y:a.oy,fi:1});return;}
   p.fade=0;p.in=a.inside?1:0;p.act=a.l||p.act;a.t-=dt;if(a.t<=0)p.q.shift();}
  else{p.q.shift();const r=a.f(p);if(r===false)abort(p);}
 }
 function brain(p){
+ if(!p.in&&inM(p.x|0,p.y|0)){const ob=bId(occ[idx(p.x|0,p.y|0)]);if(ob&&ADP[ob.t]){const d=door(ob);p.q=[{a:'st',x:d.x+.5,y:d.y+.5,fi:1}];return;}}
  if(p.idle>0){p.idle-=0.1;p.q=[WAIT(1,'laukia')];return;}
  const h=home(p);
  if(p.sick){p.q=[...(h?[toB(h)]:[]),WAIT(3,'serga',1)];p.act='serga';return;}
@@ -164,6 +170,7 @@ function brain(p){
  if(isNight()&&!h){p.q=[WAIT(4,'miega po atviru dangumi')];p.act='miega lauke';return;}
  if(p.ch){
   if(p.hu>60&&h&&meals(h)>=1){p.q=[toB(h),WAIT(2,'mama maitina',1),FN(q=>{eat(q);})];return;}
+  if(h&&h.st!='site'&&h.lv&&ADP[h.t]&&R()<0.8&&yardPt(h)){const d=door(h),q=[GO(d.x,d.y)];let n=2+(R()*3|0);for(let i=0;i<n;i++){const y=yardPt(h);if(!y)continue;q.push({a:'st',x:y[0],y:y[1]},WAIT(rnd(1.5,4),'žaidžia kieme'));}q.push({a:'st',x:d.x+.5,y:d.y+.5});p.q=q;p.act='žaidžia kieme';return;}
   const d=h?door(h):{x:44,y:44},ys=yardSpot(d,p);p.q=[ys?{a:'go',x:ys[0],y:ys[1],free:1}:GO(d.x+Math.round(rnd(-3,3)),d.y+Math.round(rnd(-2,3))),WAIT(rnd(2,5),'žaidžia')];p.act='žaidžia';return;}
  // hunger / rest
  if((p.hu>70||p.en<20)&&h){
@@ -192,7 +199,12 @@ function brain(p){
  const c=nearest(stores(),p.x,p.y)||h;if(c){const d=door(c);p.q=[GO(d.x+Math.round(rnd(-3,3)),d.y+Math.round(rnd(-1,3))),WAIT(rnd(3,6),'laisvas')];}else p.q=[WAIT(3,'laisvas')];p.act='laisvas';
 }
 // v11: children play on grass in yards (straight line when clear, not only along paths)
-function yardSpot(d,p){for(let k=0;k<25;k++){const r=rnd(1.5,5.5),a=R()*6.283,x=Math.round(d.x+Math.cos(a)*r),y=Math.round(d.y+Math.sin(a)*r);if(inM(x,y)&&walk(x,y)&&'gp'.includes(terr(x,y))&&!RD.has(idx(x,y))&&!(objAt[idx(x,y)]&&isTree(objAt[idx(x,y)])))return[x,y];}return null;}
+const ADP={namas:[[118,207],[105,222],[200,254],[202,258],[200,264]]};
+function artDoor(b){const t=ADP[b.t];if(!t||b.st=='site'||!b.lv)return null;if(b.adl===b.lv&&b.adx!=null)return{x:b.adx,y:b.ady};const d=spriteDims(b,b.lv);if(!d)return null;const[ix,iy]=t[b.lv-1],X=d.x+ix*d.w/d.im.width,Y=d.y+iy*d.h/d.im.height-TH*0.12;
+ const u=(X-WW/2)/(TW/2),v=Y/(TH/2);b.adl=b.lv;b.adx=(u+v)/2;b.ady=(v-u)/2;return{x:b.adx,y:b.ady};}
+function hidden(x,y,self){const[X,Y0]=wpos(x,y),Y=Y0-14;for(const q of S.b){if(q===self||!q.lv||q.st=='site')continue;const dep=q.s>=3?q.x+q.y+3:q.x+q.y+2*q.s-1.5;if(dep<=x+y)continue;const d=spriteDims(q,q.lv);if(!d)continue;if(X>d.x+d.w*0.12&&X<d.x+d.w*0.88&&Y>d.y+d.h*0.05&&Y<d.y+d.h*0.97)return true;}return false;}
+function yardPt(b){for(let k=0;k<30;k++){const u=rnd(1.5,2.8),v=rnd(1.6,2.8);if(u+v>=3.4&&!hidden(b.x+u,b.y+v,b))return[b.x+u,b.y+v];}return null;}
+function yardSpot(d,p){for(let k=0;k<25;k++){const r=rnd(1.5,5.5),a=R()*6.283,x=Math.round(d.x+Math.cos(a)*r),y=Math.round(d.y+Math.sin(a)*r);if(inM(x,y)&&walk(x,y)&&'gp'.includes(terr(x,y))&&!RD.has(idx(x,y))&&!(objAt[idx(x,y)]&&isTree(objAt[idx(x,y)]))&&!hidden(x+.5,y+.5,null))return[x,y];}return null;}
 function lineOK(x0,y0,x1,y1){const l=Math.hypot(x1-x0,y1-y0),n=Math.ceil(l/0.3);if(l>8)return false;for(let i=0;i<=n;i++){const x=x0+(x1-x0)*i/n,y=y0+(y1-y0)*i/n;if(!walk(x|0,y|0))return false;}return true;}
 function siteLim(s){return s.tot*sum(s.got)/Math.max(1,sum(s.need));}
 function builderTask(p,b){const s0=b.site;if(s0&&s0.prog>=siteLim(s0)-1e-6&&!(s0.prog>=s0.tot-1e-6)){p.q=[toB(b),FN(o=>{face(o,b.x+b.s/2,b.y+b.s/2);}),WAIT(2,'laukia medžiagų')];p.act='laukia medžiagų';return;}
@@ -618,7 +630,7 @@ function drawP(p){const work=!p.mv&&p.act;
  const base=p.ch?(p.sex=='m'?'vaikas':'mergaite'):p.sex=='m'?'vyras':'moteris',dn=base+(p.bk?'_ne':'_sw'),M=VM[dn],at=img('v_'+dn);if(!at)return;
  let[X,Y]=wpos(p.x,p.y);if(!p.mv&&p.tgt&&(p.act=='kerta medį'||p.act=='skaldo akmenį'||p.act=='skaldo uolą')){const[TX,TY]=wpos(p.tgt.x+.5,p.tgt.y+.5);X+=(TX-X)*0.22;Y+=(TY-Y)*0.22;}
  const fw=M[0]/VK,fh=M[1]/VK,tH=M[3]/VK,P={w:fw,h:tH,hip:tH*0.55,cx:fw/2},h=tH,dw=TW*VS*(p.ch?0.25:0.33);
- ctx.save();ctx.translate(X,Y+TH*0.12);if(p.fade)ctx.globalAlpha=Math.max(0,1-p.fade);
+ const hop=(p.ch&&!p.mv&&p.act&&p.act.startsWith('žaidžia'))?-Math.abs(Math.sin(S.t*5+p.id*1.7))*TH*0.12:0;if(hop&&Math.sin(S.t*1.3+p.id)>0.6)p.fl=Math.sin(S.t*0.7+p.id)>0?1:-1;ctx.save();ctx.translate(X,Y+TH*0.12+hop);if(p.fade)ctx.globalAlpha=Math.max(0,1-p.fade);
  ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(0,-dw*0.04,dw*0.38,dw*0.15,0,0,7);ctx.fill();
  if(p.fl>0)ctx.scale(-1,1); // forward = -x
  ctx.save();const fr=p.mv?(Math.floor(p.ph/6.2832*8)%8+8)%8:M[4];
