@@ -114,7 +114,7 @@ function takeFood(n){let g=0;while(g<n&&food()>=1){if(S.res.d>=1){S.res.d--;g+=2
 // ---------- villagers: actions ----------
 function release(p){const r=p.res;if(!r)return;p.res=null;
  if(r.k=='obj')r.o.res=0;else if(r.k=='inb'){const b=bId(r.b);if(b&&b.site)b.site.inb[r.r]=Math.max(0,b.site.inb[r.r]-r.n);}else if(r.k=='deer'){r.o.res=0;r.o.st=0;}else if(r.k=='heal'){const s=S.p.find(q=>q.id==r.p);if(s)s.treat=0;}}
-function abort(p){release(p);p.q=[];p.path=null;if(p.hold){for(const k in p.hold)if(p.hold[k]>0)deposit(k,p.hold[k]);p.hold=null;p.carry=null;}}
+function abort(p){release(p);if(p.meat){deposit('mesa',p.meat);p.meat=0;}p.q=[];p.path=null;if(p.hold){for(const k in p.hold)if(p.hold[k]>0)deposit(k,p.hold[k]);p.hold=null;p.carry=null;}}
 const GO=(x,y)=>({a:'go',x,y}),WAIT=(t,l,inside)=>({a:'w',t,l,inside}),FN=f=>({a:'f',f});
 const toB=b=>{const d=door(b);return GO(d.x,d.y);};
 function workMul(p){const h=home(p);return 0.7+0.5*((h?h.hap:50)/100);}
@@ -246,8 +246,8 @@ function herdCap(b){return 4+2*b.lv;}
 function herdJob(p,b,m){const h=b.herd||(b.herd={c:2,s:3});const W=S.p.filter(q=>q.job==b.id);const hasF=W.some(q=>q.sex=='f');const ft=fieldTiles(b)[(p.id+Math.floor(S.t/7))%5],sp=fieldSpot(b,(p.id+Math.floor(S.t/7))%5);
  if(p.sex=='f'||!hasF){if((b.vb||0)>=4){const n=Math.floor(b.vb);p.q=[toB(b),FN(o=>{const bb=bId(b.id);if(!bb)return false;const g=Math.floor(bb.vb||0);bb.vb-=g;o.carry={k:'v',n:g};}),FN(o=>{const s=nearest(stores(),o.x,o.y);if(s)o.q.unshift(toB(s),FN(z=>{if(z.carry)deposit('v',z.carry.n);z.carry=null;}));})];p.act='neša vilną';return true;}
   p.q=[GO(sp[0],sp[1]),FN(o=>{face(o,ft[0]+.5,ft[1]+.5);}),WAIT(7/m,'šeria gyvulius'),FN(o=>{const bb=bId(b.id);if(!bb)return;const hh=bb.herd;bb.vb=(bb.vb||0)+Math.max(hh.s?1:0,Math.floor(hh.s/2));if(herdN(bb)<herdCap(bb)&&R()<0.3){if(R()<.55)hh.s++;else hh.c++;bb.an=null;}})];p.act='šeria gyvulius';return true;}
- const min=3+b.lv;if(herdN(b)>min){p.q=[GO(sp[0],sp[1]),FN(o=>{face(o,ft[0]+.5,ft[1]+.5);o.tgt={x:ft[0],y:ft[1],ph:o.id*.37};}),WAIT(6/m,'skerdžia gyvulį'),FN(o=>{o.tgt=null;const bb=bId(b.id);if(!bb)return false;const hh=bb.herd;if(herdN(bb)<=3+bb.lv)return false;let n;if(hh.c>2&&(hh.c>=hh.s/2||hh.s<=2)){hh.c--;n=8;}else{hh.s--;n=4;}bb.an=null;o.carry={k:'mesa',n};}),
-  FN(o=>{const s=nearest(stores(),o.x,o.y);if(s&&o.carry)o.q.unshift(toB(s),FN(z=>{if(z.carry)deposit('mesa',z.carry.n);z.carry=null;}));})];p.act='skerdžia gyvulį';return true;}
+ const min=3+b.lv;if(herdN(b)>min){p.q=[toB(b),FN(o=>{const bb=bId(b.id);if(!bb)return false;const hh=bb.herd;if(herdN(bb)<=3+bb.lv)return false;let n;if(hh.c>2&&(hh.c>=hh.s/2||hh.s<=2)){hh.c--;n=8;}else{hh.s--;n=4;}bb.an=null;o.meat=n;}),WAIT(6/m,'skerdžia gyvulį tvarte',1),FN(o=>{o.carry={k:'mesa',n:o.meat||4};o.meat=0;}),
+  FN(o=>{const s=nearest(stores(),o.x,o.y);if(s&&o.carry)o.q.unshift(toB(s),FN(z=>{if(z.carry)deposit('mesa',z.carry.n);z.carry=null;}));})];p.act='skerdžia gyvulį tvarte';return true;}
  p.q=[toB(b),WAIT(6,'tvarko tvartą',1)];p.act='tvarko tvartą';return true;}
 function isTree(o){return o.k=='pusis'||o.k=='pusys'||o.k=='azuolas'||o.k=='berzas';}
 function nearTrees(b){const d=door(b),RR=16+2*b.lv;let n=0;for(const o of S.objs)if(isTree(o)&&Math.hypot(o.x-d.x,o.y-d.y)<RR)n++;return n;}
@@ -363,7 +363,7 @@ function canPlace(t,x,y){const s=B[t].size[0];let water=false;
  for(let i=0;i<s;i++)for(let j=0;j<s;j++){const X=x+i,Y=y+j;if(!inM(X,Y))return 'Už žemėlapio ribų';if(!S.fog[idx(X,Y)])return 'Ši vieta dar neatrasta';
   const te=terr(X,Y);if(te=='w')return 'Negalima statyti ant vandens';if(te=='u'||te=='c')return 'Negalima statyti ant kalno';if(occ[idx(X,Y)])return 'Vieta užimta';const o=objAt[idx(X,Y)];if(o)return isTree(o)?'Čia auga medis':o.k=='kelmas'?'Čia kelmas':'Čia guli akmenys';if(BR.has(idx(X,Y)))return 'Čia tiltas';if(inReserve(X,Y))return 'Ši vieta rezervuota namo plėtrai';}
  if(t=='namas'){for(let i=0;i<2;i++)for(let j=0;j<2;j++){if(!i&&!j)continue;const X=x+i,Y=y+j;if(!inM(X,Y)||'wuc'.includes(terr(X,Y)))return 'Namui reikia vietos plėtrai (2×2 į dešinę ir žemyn)';if(occ[idx(X,Y)]||inReserve(X,Y))return 'Plėtros vietą užima kitas pastatas';}}
- if(B[t].mtn){let ok=false;for(let i=-1;i<=s;i++)for(let j=-1;j<=s;j++){const X=x+i,Y=y+j;if(inM(X,Y)&&isMtn(X,Y))ok=true;}if(!ok)return 'Skaldykla turi stovėti prie pat kalno ar uolos';}
+ if(B[t].mtn){let k=0;for(let i=0;i<s;i++)for(const[X,Y]of[[x+i,y-1],[x+i,y+s],[x-1,y+i],[x+s,y+i]])if(inM(X,Y)&&isMtn(X,Y))k++;if(k<1)return 'Skaldykla turi stovėti prie pat kalno ar uolos';}
  if(B[t].water){for(let i=-1;i<=s;i++)for(let j=-1;j<=s;j++){const X=x+i,Y=y+j;if(inM(X,Y)&&terr(X,Y)=='w')water=true;}if(!water)return 'Žvejo trobelė turi būti prie vandens';}
  return '';}
 function canUpgrade(b){if(b.lv>=5)return 'Jau aukščiausias lygis';if(b.st!='ok')return 'Jau tobulinama';if(b.fire)return 'Dega!';
@@ -393,7 +393,7 @@ function chunk(cx,cy){const k=cx+'_'+cy;let c=CH[k];if(c===undefined){if(!MAP.ch
 let blob=null;function mkBlob(){blob=document.createElement('canvas');blob.width=96;blob.height=48;const c=blob.getContext('2d');const g=c.createRadialGradient(48,24,2,48,24,46);g.addColorStop(0,'rgba(128,98,62,0.95)');g.addColorStop(0.55,'rgba(122,94,60,0.75)');g.addColorStop(1,'rgba(118,92,60,0)');c.setTransform(1,0,0,0.5,0,0);c.fillStyle=g;c.beginPath();c.arc(48,48,46,0,7);c.fill();c.setTransform(1,0,0,1,0,0);
  for(let i=0;i<60;i++){c.fillStyle=`rgba(${90+R()*60|0},${70+R()*40|0},${45+R()*30|0},${R()*.35})`;const a=R()*6.28,r=R()*30;c.fillRect(48+Math.cos(a)*r,24+Math.sin(a)*r*.5,2,1.5);}}
 let build=null,sel=null,lastT=0,fps=60;
-function spriteDims(b,lv){const im=img(B[b.t].spr[lv-1]);if(!im)return null;let s=B[b.t].size[lv-1];if(B[b.t].fld)s=2;const w=b.t=='sandelis'?TW*2.25:b.t=='sulinys'?TW*0.95:s>1?TW*s*1.08:TW*1.3;const h=im.height*w/im.width;
+function spriteDims(b,lv){const im=img(B[b.t].spr[lv-1]);if(!im)return null;let s=B[b.t].size[lv-1];if(B[b.t].fld)s=2;const w=b.t=='sandelis'?TW*2.25:b.t=='sulinys'?TW*0.95:b.t=='namas'?TW*s*0.9:s>1?TW*s*1.08:TW*1.3;const h=im.height*w/im.width;
  const[X,Y]=wpos(b.x+s-1,b.y+s-1);return{im,x:X-w/2,y:Y+TH-h+TH*0.12*s,w,h};}
 function render(){
  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#161a20';ctx.fillRect(0,0,W,H);
@@ -549,10 +549,13 @@ function drawP(p){let n;const work=!p.mv&&p.act;
  ctx.save();ctx.translate(hipX,hipY+bob*0.5);ctx.rotate(-A*s);ctx.drawImage(P.R,0,0);ctx.restore();
  // body (sway + lean forward while walking)
  ctx.save();ctx.translate(hipX,hipY+bob);ctx.rotate((p.mv?-0.05:0)+s*0.03);
- const working=!p.mv&&(p.act=='kerta medį'||p.act=='skaldo akmenį'||p.act=='skaldo uolą'||p.act=='pjauna javus'||p.act=='skerdžia gyvulį'||p.act=='stato'||p.act=='griauna');let tA=0;
+ const working=!p.mv&&(p.act=='kerta medį'||p.act=='skaldo akmenį'||p.act=='skaldo uolą'||p.act=='pjauna javus'||p.act=='stato'||p.act=='griauna');let tA=0;
  if(working){const ph=(S.t*((p.act=='stato'||p.act=='griauna')?1.6:1.1)+(p.tgt&&p.tgt.ph||p.id*0.37))%1;tA=(p.act=='stato'||p.act=='griauna')?swingTool(ph,-1.3,0.55):swingTool(ph,-2.1,0.45);ctx.rotate(ph>0.7&&ph<0.8?-0.08:0.04);}
  ctx.drawImage(P.up,-P.cx,-P.hip);
  if(P.arms){const aa=p.mv?0.2*s:0;for(const a of P.arms){ctx.save();ctx.translate(-P.cx+a.px,-P.hip+a.py);ctx.rotate(a.f*aa);ctx.drawImage(a.c,a.x-a.px,a.y-a.py);ctx.restore();}}
+ if(p.carry&&p.sex=='m'&&['g','mi','d','v','mesa','a'].includes(p.carry.k)){const k=p.carry.k,bx=P.w*0.3,by=-P.hip+P.h*0.3;// load on the back/shoulder, on the far shoulder, clear of the head so the face stays visible
+  if(k=='a'){ctx.fillStyle='#8d8a84';ctx.strokeStyle='#55524d';ctx.lineWidth=P.h*0.01;ctx.beginPath();ctx.ellipse(bx,by,P.w*0.15,P.w*0.11,0.5,0,7);ctx.fill();ctx.stroke();}
+  else{const c={g:'#d4b26a',mi:'#efe9da',d:'#b5763a',v:'#f2eee2',mesa:'#a8443a'}[k];ctx.fillStyle=c;ctx.strokeStyle='#5d4a30';ctx.lineWidth=P.h*0.008;ctx.beginPath();ctx.ellipse(bx,by,P.w*0.14,P.w*0.18,0.35,0,7);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(bx-P.w*0.06,by-P.w*0.22);ctx.lineTo(bx+P.w*0.02,by-P.w*0.3);ctx.stroke();}}
  const sh=[-P.w*0.16,-P.hip+P.h*0.36];// shoulder (forward = -x)
  const L=P.h;
  if(working){ctx.save();ctx.translate(sh[0],sh[1]);ctx.rotate(-tA);// tool pointing forward(-x) rotated
@@ -579,9 +582,7 @@ function drawP(p){let n;const work=!p.mv&&p.act;
  if(p.carry&&(p.carry.k=='woodh'||p.carry.k=='m')&&p.sex=='f'&&!p.ch){ctx.save();ctx.translate(0,-P.hip+P.h*0.2);ctx.rotate(-0.25);ctx.fillStyle='#8a5a2e';ctx.strokeStyle='#4a2e14';ctx.lineWidth=L*0.008;for(let i=0;i<2;i++){ctx.beginPath();ctx.rect(-P.w*0.55,i*L*0.045-L*0.02,P.w*1.1,L*0.042);ctx.fill();ctx.stroke();ctx.fillStyle='#d9b07a';ctx.beginPath();ctx.ellipse(-P.w*0.55,i*L*0.045+L*0.001,L*0.012,L*0.021,0,0,7);ctx.fill();ctx.fillStyle='#8a5a2e';}ctx.restore();}
  if(!p.mv&&(p.act=='sėja grūdus'||p.act=='šeria gyvulius')){const ph=(S.t*0.9+p.id*0.3)%1;ctx.save();ctx.translate(sh[0],sh[1]);ctx.rotate(-(ph<0.5?-0.4+ph*2:0.6-(ph-0.5)*2));ctx.fillStyle='#e0b48c';ctx.beginPath();ctx.arc(-L*0.18,0,L*0.025,0,7);ctx.fill();ctx.restore();
   if(ph>0.45&&ph<0.85){const f=(ph-0.45)/0.4;ctx.fillStyle=p.act=='sėja grūdus'?'#e8d27a':'#b9c46a';for(let i=0;i<5;i++)ctx.fillRect(sh[0]-L*0.25-f*L*0.25-i*L*0.02,sh[1]+f*L*0.35+i*L*0.015,L*0.012,L*0.012);}}
- if(p.carry&&['g','mi','d','v','mesa'].includes(p.carry.k)&&p.sex=='m'){const c={g:'#d4b26a',mi:'#efe9da',d:'#b5763a',v:'#f2eee2',mesa:'#a8443a'}[p.carry.k];ctx.fillStyle=c;ctx.strokeStyle='#5d4a30';ctx.lineWidth=L*0.008;ctx.beginPath();ctx.ellipse(P.w*0.02,-P.hip+P.h*0.2,P.w*0.25,P.w*0.2,0.2,0,7);ctx.fill();ctx.stroke();}
  if(p.carry&&p.carry.k=='food'&&p.sex=='m'){ctx.fillStyle='#c8b089';ctx.strokeStyle='#6d5a3a';ctx.lineWidth=L*0.008;ctx.beginPath();ctx.ellipse(P.w*0.02,-P.hip+P.h*0.2,P.w*0.25,P.w*0.2,0.2,0,7);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(P.w*0.12,-P.hip+P.h*0.12);ctx.lineTo(P.w*0.2,-P.hip+P.h*0.08);ctx.stroke();}
- if(p.carry&&p.carry.k=='a'&&p.sex=='m'){ctx.fillStyle='#8d8a84';ctx.strokeStyle='#55524d';ctx.lineWidth=L*0.01;ctx.beginPath();ctx.ellipse(-P.w*0.05,-P.hip+P.h*0.18,P.w*0.26,P.w*0.18,0.3,0,7);ctx.fill();ctx.stroke();}
  ctx.restore();ctx.restore();
  if(p.sick&&!p.in){ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('🤒',X,Y-h);}}
 
