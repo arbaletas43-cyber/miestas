@@ -504,8 +504,11 @@ const WB={"gyvuliai_1":[36,59,295,253],"gyvuliai_2":[104,38,325,227],"gyvuliai_3
 const CHIM={namas_1:[205,7],namas_3:[231,7],namas_4:[238,7],namas_5:[235,7]};
 // v10: yard surface centre y per sprite (sprite px); sprites are pre-clipped to the 2:1 footprint diamond
 const SCY={"k_lauzas":95.6,"k_pastoge":182.6,"k_palapine":213.5,"k_zemine":184.2,"k_stovykla":136.0,"k_dziovykla":163.7,"k_titnagas":152.8,"k_zvejyba":92.3,"k_aptvaras":130.1,"k_javai":93.9,"k_puodzerija":137.3,"gyvuliai_1": 152.0, "gyvuliai_2": 160.5, "gyvuliai_3": 182.0, "gyvuliai_4": 179.5, "gyvuliai_5": 184.0, "kepykla_1": 156.0, "kepykla_2": 160.0, "kepykla_3": 180.5, "kepykla_4": 188.0, "kepykla_5": 174.0, "lentpjuve_1": 149.5, "lentpjuve_2": 151.5, "lentpjuve_3": 150.0, "lentpjuve_4": 149.5, "lentpjuve_5": 162.0, "malkine_1": 142.5, "malkine_2": 136.0, "malkine_3": 154.5, "malkine_4": 167.0, "malkine_5": 165.0, "malunas_1": 218.5, "malunas_2": 223.0, "malunas_3": 250.5, "malunas_4": 249.0, "malunas_5": 257.5, "medziotojas_1": 173.5, "medziotojas_2": 163.0, "medziotojas_3": 176.5, "medziotojas_4": 173.0, "medziotojas_5": 181.5, "namas_1": 223.0, "namas_2": 236.0, "namas_3": 263.0, "namas_4": 262.5, "namas_5": 267.5, "sandelis_1": 153.0, "sandelis_2": 167.0, "sandelis_3": 178.5, "sandelis_4": 180.0, "sandelis_5": 189.5, "skaldykla_1": 175.0, "skaldykla_2": 166.5, "skaldykla_3": 170.5, "skaldykla_4": 175.5, "skaldykla_5": 169.0, "sulinys_1": 132.0, "sulinys_2": 150.5, "sulinys_3": 160.0, "sulinys_4": 167.0, "sulinys_5": 196.5, "ukis_1": 146.0, "ukis_2": 136.0, "ukis_3": 153.0, "ukis_4": 150.0, "ukis_5": 169.5, "zolininke_1": 175.0, "zolininke_2": 170.5, "zolininke_3": 188.5, "zolininke_4": 187.5, "zolininke_5": 198.5, "zvejas_1": 155.0, "zvejas_2": 173.5, "zvejas_3": 191.5, "zvejas_4": 191.0, "zvejas_5": 207.0};
+// v13b: nomad structures are drawn smaller (~2x2) in the middle of their unchanged 3x3 plot; the rest is a sand yard
+const KSC={k_pastoge:.6,k_palapine:.6,k_zemine:.62,k_stovykla:.58,k_puodzerija:.58,k_aptvaras:.64,k_javai:.64,k_titnagas:.5,k_zvejyba:.5,k_dziovykla:.42,k_lauzas:.4};
+function kYard(b){const s=b.s||3,[X,Y]=wpos(b.x+s-1,b.y+s-1),cy=Y+TH-s*TH/2,hw=s*TW/2,hh=s*TH/2;ctx.fillStyle='rgba(219,193,146,0.92)';ctx.beginPath();ctx.moveTo(X,cy-hh);ctx.lineTo(X+hw,cy);ctx.lineTo(X,cy+hh);ctx.lineTo(X-hw,cy);ctx.closePath();ctx.fill();}
 function spriteDims(b,lv){const nm=B[b.t].spr[lv-1],im=img(nm);if(!im)return null;const s=b.s||3,m=SM[nm.slice(2)];if(!m)return null;
- const sc=s*TW/(m[2]-m[1]),w=im.width*sc,h=im.height*sc;const[X,Y]=wpos(b.x+s-1,b.y+s-1);return{im,x:X-m[3]*sc,y:Y+TH-s*TH/2-SCY[nm.slice(2)]*sc,w,h};}
+ const sc=s*TW/(m[2]-m[1])*(KSC[nm.slice(2)]||1),w=im.width*sc,h=im.height*sc;const[X,Y]=wpos(b.x+s-1,b.y+s-1);return{im,x:X-m[3]*sc,y:Y+TH-s*TH/2-SCY[nm.slice(2)]*sc,w,h};}
 function render(){
  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#161a20';ctx.fillRect(0,0,W,H);
  const z=cam.z;ctx.setTransform(DPR*z,0,0,DPR*z,DPR*(W/2-cam.x*z),DPR*(H/2-cam.y*z));
@@ -656,7 +659,7 @@ function drawB(b,top){const z=cam.z;let d;
   if(dd&&pr>0.02){const f=Math.min(1,pr);ctx.drawImage(dd.im,0,dd.im.height*(1-f),dd.im.width,dd.im.height*f,dd.x,dd.y+dd.h*(1-f),dd.w,dd.h*f);}
   if(sc){const w=TW*s*1.05,h=sc.height*w/sc.width;ctx.globalAlpha=1-0.6*pr;ctx.drawImage(sc,X-w/2,Y+TH-h+TH*0.1*s,w,h);ctx.globalAlpha=1;}
   d=dd;}
- else{d=spriteDims(b,b.lv);if(d)ctx.drawImage(d.im,d.x,d.y,d.w,d.h);
+ else{d=spriteDims(b,b.lv);if(d&&KSC[B[b.t].spr[b.lv-1].slice(2)])kYard(b);if(d)ctx.drawImage(d.im,d.x,d.y,d.w,d.h);
   if(b.st=='upg'){const sc=img('statybviete');if(sc&&d){const w=d.w*0.8,h=sc.height*w/sc.width;ctx.globalAlpha=0.85;ctx.drawImage(sc,d.x+d.w*0.1,d.y+d.h-h*0.95,w,h);ctx.globalAlpha=1;}}}
  if(!d)return;
  if(b.fire>0){top.push(()=>drawFire(b,d));}
