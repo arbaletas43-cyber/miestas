@@ -630,7 +630,8 @@ function endBuild(){if(roadMode){endRoad();return;}build=null;$('buildbar').clas
 $('bmOk').onclick=()=>{if(roadMode){roadMode.del=!roadMode.del;updRoad();return;}if(!build)return;const e=canPlace(build.t,build.x,build.y);if(e){toast(e);return;}addB(build.t,build.x,build.y,0);toast('Statybvietė pažymėta – gyventojai patys atneš medžiagas ir pastatys');save();endBuild();};
 $('bmNo').onclick=endBuild;
 function jobTitle(p){if(p.ch)return 'vaikas';if(p.sick)return 'serga';if(p.fire)return 'gesina gaisrą';if(p.role)return 'statybininkas';const j=bId(p.job);if(j)return {malkine:'medkirtys',medziotojas:'medžiotojas',zvejas:'žvejys',zolininke:p.sex=='f'?'žolininkė':'žolininkas',skaldykla:'akmenskaldys',lentpjuve:'lentpjovys',ukis:p.sex=='f'?'sėjėja':'pjovėjas',gyvuliai:p.sex=='f'?'gyvulių šėrėja':'skerdikas',malunas:'malūnininkas',kepykla:'kepėja'}[j.t];if(p.sg)return 'akmenų rinkėjas';return p.sex=='f'?'šeimininkė':'nešikas';}
-function openPop(b){sel=b.id;renderPop();$('pop').classList.remove('hidden');}
+let popT=0;function popGuard(){return performance.now()-popT<600;}
+function openPop(b){if(sel!==b.id)popT=performance.now();sel=b.id;renderPop();$('pop').classList.remove('hidden');}
 function closePop(){sel=null;$('pop').classList.add('hidden');}
 function renderPop(){const b=bId(sel);if(!b){closePop();return;}const d=B[b.t];let h=`<div class="ph"><img src="img/${d.spr[Math.max(0,b.lv-1)]}.webp"><div><h3>${d.n}</h3><div class="sub">${b.lv?`${b.lv} lygis iš 5 – ${d.lv[b.lv-1]}`:'Statoma'}</div></div><button class="x" id="popX">✕</button></div>`;
  if(b.site){const s=b.site;h+=`<div class="row">🔨 ${b.st=='upg'?'Tobulinama į '+s.to+' lygį':'Statoma'}: ${Math.floor(100*s.prog/s.tot)}%</div><div class="row">Atnešta: 🪵${s.got.m}/${s.need.m}${s.need.a?` 🪨${s.got.a}/${s.need.a}`:''}${s.need.l?` 🪚${s.got.l}/${s.need.l}`:''}</div>`;
@@ -652,8 +653,8 @@ function renderPop(){const b=bId(sel);if(!b){closePop();return;}const d=B[b.t];l
  if(b.lv&&b.lv<5&&b.st=='ok'){const e=canUpgrade(b);h+=`<button class="up" id="popUp" ${e?'disabled':''}>⬆ Tobulinti į ${b.lv+1} lygį: ${d.lv[b.lv]}<br><small>${costTxt(d.cost[b.lv])}${d.cap?` · ${d.cap[b.lv]} gyventojai`:''}${d.wk?` · ${d.wk[b.lv]} darbininkai`:''}${e?' · '+e:''}</small></button>`;}
  else if(b.lv==5)h+=`<div class="row">⭐ Aukščiausias lygis</div>`;
  if(b.st=='demo')h+=`<div class="row warn">⛏ Griaunama… liko ${Math.max(0,Math.ceil(b.demo))} darbo s.</div>`;
- else if(b.st=='ok'&&!b.fire)h+=`<button class="up demo" id="popDemo">🔨 Griauti<br><small>Grąžins apie pusę medžiagų į sandėlį</small></button>`;
- $('pop').innerHTML=h;$('popX').onclick=closePop;const u=$('popUp');if(u)u.onclick=()=>{upgrade(b);renderPop();};const dm=$('popDemo');if(dm)dm.onclick=()=>{const r=S.p.filter(p=>p.home==b.id).length;let free=0;for(const q of S.b)if(q!==b&&q.t=='namas'&&q.lv&&q.st!='demo')free+=Math.max(0,B.namas.cap[q.lv-1]-S.p.filter(z=>z.home==q.id).length);
+ else if(b.st=='ok'&&!b.fire)h+=`<div class="demorow"><button class="demo" id="popDemo" title="Grąžins apie pusę medžiagų į sandėlį">🔨 Griauti</button></div>`;
+ $('pop').innerHTML=h;$('popX').onclick=closePop;const u=$('popUp');if(u)u.onclick=()=>{if(popGuard())return;upgrade(b);renderPop();};const dm=$('popDemo');if(dm)dm.onclick=e=>{e.preventDefault();e.stopPropagation();if(popGuard())return;const r=S.p.filter(p=>p.home==b.id).length;let free=0;for(const q of S.b)if(q!==b&&q.t=='namas'&&q.lv&&q.st!='demo')free+=Math.max(0,B.namas.cap[q.lv-1]-S.p.filter(z=>z.home==q.id).length);
   if(confirm(`Ar tikrai griauti „${d.n}“?`+(r?(free>=r?`\n\n⚠ Šeima liks be namų! Gyventojai (${r}) persikels į kitą laisvą namą.`:`\n\n⚠ Šeima liks be namų! Kituose namuose vietos yra tik ${free} iš ${r} – kiti gyvens lauke, kol atsiras vietos.`):'')+'\n\nBus grąžinta apie pusė medžiagų.')){demolish(b);renderPop();}};}
 function renderPrio(){const l=$('prioList');l.innerHTML='';S.prio.forEach((c,i)=>{const n=S.p.filter(p=>catOf(p)==c).length;const e=document.createElement('div');e.className='prow';e.innerHTML=`<b>${i+1}.</b> ${CATN[c]} <small>(${n} dirba)</small><span><button data-i="${i}" data-d="-1">▲</button><button data-i="${i}" data-d="1">▼</button></span>`;l.appendChild(e);});
  l.querySelectorAll('button').forEach(bt=>bt.onclick=()=>{const i=+bt.dataset.i,j=i+ +bt.dataset.d;if(j<0||j>=S.prio.length)return;[S.prio[i],S.prio[j]]=[S.prio[j],S.prio[i]];renderPrio();save();});}
@@ -691,7 +692,7 @@ cv.addEventListener('pointermove',e=>{if(!ptr.has(e.pointerId))return;ptr.set(e.
  else if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>8)moved=true;if(moved){cam.x=drag.cx-dx/cam.z;cam.y=drag.cy-dy/cam.z;clampCam();}}});
 function up(e){if(!ptr.has(e.pointerId))return;ptr.delete(e.pointerId);if(roadMode){if(ptr.size==0)roadMode.paint=0;if(ptr.size==0){drag=null;pinch=null;return;}}if(ptr.size<2)pinch=null;if(ptr.size==0){if(!moved&&drag)tap(e.clientX,e.clientY);drag=null;}
  else if(ptr.size==1){const[a]=[...ptr.values()];drag={x:a.x,y:a.y,cx:cam.x,cy:cam.y};}}
-cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('pointerup',up);cv.addEventListener('touchend',e=>{if(e.cancelable)e.preventDefault();},{passive:false});cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();const[wx,wy]=s2w(e.clientX,e.clientY);cam.z*=Math.exp(-e.deltaY*0.0015);clampCam();cam.x=wx-(e.clientX-W/2)/cam.z;cam.y=wy-(e.clientY-H/2)/cam.z;clampCam();},{passive:false});
 document.addEventListener('gesturestart',e=>e.preventDefault());
 function tap(sx,sy){const[X,Y]=s2w(sx,sy);const[tx,ty]=w2t(X,Y);
