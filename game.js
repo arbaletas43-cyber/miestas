@@ -40,7 +40,7 @@ const NB={
  javai:{n:'Javų lopinėlis',ic:'🌾',era:4,cat:'maistas',wk:2,sx:'f',cost:{m:10},d:'Moterys augina ir titnaginiais pjautuvais pjauna grūdus.'},
  puodzerija:{n:'Puodžių dirbtuvė',ic:'🏺',era:4,cost:{m:14},d:'Moliniai puodai – +40 vietos kiekvienam ištekliui prie laužo.'}};
 const NSPR={lauzas:'k_lauzas',pastoge:'k_pastoge',palapine:'k_palapine',kstovykla:'k_stovykla',dziovykla:'k_dziovykla',zemine:'k_zemine',titnagas:'k_titnagas',zvejyba:'k_zvejyba',aptvaras:'k_aptvaras',javai:'k_javai',puodzerija:'k_puodzerija'};
-for(const t in NB){const n=NB[t];B[t]={n:n.n,ic:n.ic,cat:n.cat,k:1,era:n.era,lv:[n.n],size:[3],wk:[n.wk||0],spr:['b_'+NSPR[t]],cost:[n.cost||{}],rev:7,d:n.d,nx:n.nx,water:n.water,sx:n.sx};if(n.home)B[t].cap=[n.home];}
+for(const t in NB){const n=NB[t];B[t]={n:n.n,ic:n.ic,cat:n.cat,k:1,era:n.era,lv:[n.n],size:[2],wk:[n.wk||0],spr:['b_'+NSPR[t]],cost:[n.cost||{}],rev:7,d:n.d,nx:n.nx,water:n.water,sx:n.sx};if(n.home)B[t].cap=[n.home];}
 const NORDER=['pastoge','palapine','zemine','kstovykla','dziovykla','zvejyba','aptvaras','javai','titnagas','puodzerija'];
 // era advancement requirements (tunable): p = people, f = food, m = wood(logs), g = grain
 const ERA=[null,{nm:'Klajokliai',p:8,f:30},{nm:'Medžiotojų stovykla',p:12,f:60},{nm:'Sėslieji',p:16,m:40},{nm:'Pirmieji ūkininkai',p:20,g:30},{nm:'Kaimas'}];
@@ -79,7 +79,7 @@ function newGame(){
  reveal(44,41,11);
  for(let i=0;i<80&&S.deer.length<14;i++)deerTick(40);
 }
-function grow3(){for(const b of S.b){if(b.s>=3)continue;let ok=true;for(let i=0;i<3&&ok;i++)for(let j=0;j<3;j++){const X=b.x+i,Y=b.y+j,q=idx(X,Y);if(!inM(X,Y)||'wuc'.includes(terr(X,Y))||(occ[q]&&occ[q]!=b.id)||objAt[q]||BR.has(q)||RD.has(q)){ok=false;break;}}
+function grow3(){for(const b of S.b){if(b.s>=3||B[b.t].k)continue;let ok=true;for(let i=0;i<3&&ok;i++)for(let j=0;j<3;j++){const X=b.x+i,Y=b.y+j,q=idx(X,Y);if(!inM(X,Y)||'wuc'.includes(terr(X,Y))||(occ[q]&&occ[q]!=b.id)||objAt[q]||BR.has(q)||RD.has(q)){ok=false;break;}}
  if(ok){markB(b,0);b.s=3;markB(b,b.id);b.an=null;}}}
 function rebuildGrids(){RCH=null;LZ.clear();occ=new Int32Array(N*N);objAt=new Array(N*N).fill(null);
  for(const o of S.objs)objAt[idx(o.x,o.y)]=o;
@@ -409,7 +409,7 @@ function perSec(){assign();fireDispatch();demoDispatch();
 function eraReq(e){const q=ERA[e],o=[];const pop=S.p.length;if(q.p)o.push({ic:'👪',l:'žmonių',h:pop,n:q.p});if(q.f)o.push({ic:'🍖',l:'maisto',h:food(),n:q.f});if(q.m)o.push({ic:'🪵',l:'rąstų',h:woodTot(),n:q.m});if(q.g)o.push({ic:'🌾',l:'grūdų',h:S.res.g,n:q.g});return o;}
 function eraSec(){S.tools=S.b.some(b=>b.t=='titnagas'&&b.lv&&S.p.some(p=>p.job==b.id));
  if(S.t%10<1&&!S.b.some(b=>b.t=='dziovykla'&&b.lv))for(const k of['mesa','zuvis','u'])if(S.res[k]>3)S.res[k]*=0.99;
- if(eraReq(S.era).every(r=>r.h>=r.n)){S.era++;if(S.era>=5){S.tools=false;for(const b of S.b)if(b.t=='zemine'&&b.lv&&b.st=='ok'){b.t='namas';b.cl=0;b.adl=null;b.wood=Math.max(b.wood,1);}toast('⭐ 5 lygis – Kaimas! Žeminės virsta rąstiniais namais, atsirado sandėlis.');}else toast('⭐ Naujas lygis '+S.era+' – '+ERA[S.era].nm+'! Atsirado naujų pastatų.');buildMenu();save();}}
+ if(eraReq(S.era).every(r=>r.h>=r.n)){S.era++;if(S.era>=5){S.tools=false;for(const b of S.b)if(b.t=='zemine'&&b.lv&&b.st=='ok'){b.t='namas';b.cl=0;b.adl=null;b.wood=Math.max(b.wood,1);}grow3();toast('⭐ 5 lygis – Kaimas! Žeminės virsta rąstiniais namais, atsirado sandėlis.');}else toast('⭐ Naujas lygis '+S.era+' – '+ERA[S.era].nm+'! Atsirado naujų pastatų.');buildMenu();save();}}
 function tod(){return ((S.t+DAY*0.3)%DAY)/DAY;}
 function darkness(){const t=tod();if(t<0.6)return 0;if(t<0.72)return (t-0.6)/0.12;if(t<0.92)return 1;return 1-(t-0.92)/0.08;}
 function isNight(){const t=tod();return t>=0.7&&t<0.93;}
@@ -483,6 +483,7 @@ function load(){try{const s=localStorage.getItem('miestas_save');if(!s)return fa
  o.res={...RES0,...o.res};if(o.era==null)o.era=5;if(!o.prio.includes('akmuo'))o.prio.splice(Math.min(2,o.prio.length),0,'akmuo');o.roads=o.roads||[];
  for(const b of o.b){if(b.t=='malkine'&&b.mk==null)b.mk=0;if(b.t=='namas'&&b.cl==null)b.cl=0;if(b.site){for(const k of['need','got','inb'])b.site[k]={m:0,a:0,l:0,...b.site[k]};}}
  for(const p of o.p){if(p.hold){for(const k in p.hold)o.res[k]=(o.res[k]||0)+p.hold[k];p.hold=null;}}
+ for(const b of o.b)if(B[b.t]&&B[b.t].k&&b.s>2){b.s=2;b.door=null;}// v15: nomad buildings use a 2x2 plot (older v13/v14 saves had 3x3)
  S=o;RD=new Set(o.roads);S.objs=S.objs.filter(q=>!(isTree(q)&&RD.has(idx(q.x,q.y))));rebuildGrids();grow3();if(o.cam)cam=o.cam;return true;}catch(e){console.warn(e);return false;}}
 // ---------- camera & render ----------
 let W=0,H=0,DPR=1,cam={x:0,y:0,z:0.45};
@@ -504,9 +505,8 @@ const WB={"gyvuliai_1":[36,59,295,253],"gyvuliai_2":[104,38,325,227],"gyvuliai_3
 const CHIM={namas_1:[205,7],namas_3:[231,7],namas_4:[238,7],namas_5:[235,7]};
 // v10: yard surface centre y per sprite (sprite px); sprites are pre-clipped to the 2:1 footprint diamond
 const SCY={"k_lauzas":95.6,"k_pastoge":182.6,"k_palapine":213.5,"k_zemine":184.2,"k_stovykla":136.0,"k_dziovykla":163.7,"k_titnagas":152.8,"k_zvejyba":92.3,"k_aptvaras":130.1,"k_javai":93.9,"k_puodzerija":137.3,"gyvuliai_1": 152.0, "gyvuliai_2": 160.5, "gyvuliai_3": 182.0, "gyvuliai_4": 179.5, "gyvuliai_5": 184.0, "kepykla_1": 156.0, "kepykla_2": 160.0, "kepykla_3": 180.5, "kepykla_4": 188.0, "kepykla_5": 174.0, "lentpjuve_1": 149.5, "lentpjuve_2": 151.5, "lentpjuve_3": 150.0, "lentpjuve_4": 149.5, "lentpjuve_5": 162.0, "malkine_1": 142.5, "malkine_2": 136.0, "malkine_3": 154.5, "malkine_4": 167.0, "malkine_5": 165.0, "malunas_1": 218.5, "malunas_2": 223.0, "malunas_3": 250.5, "malunas_4": 249.0, "malunas_5": 257.5, "medziotojas_1": 173.5, "medziotojas_2": 163.0, "medziotojas_3": 176.5, "medziotojas_4": 173.0, "medziotojas_5": 181.5, "namas_1": 223.0, "namas_2": 236.0, "namas_3": 263.0, "namas_4": 262.5, "namas_5": 267.5, "sandelis_1": 153.0, "sandelis_2": 167.0, "sandelis_3": 178.5, "sandelis_4": 180.0, "sandelis_5": 189.5, "skaldykla_1": 175.0, "skaldykla_2": 166.5, "skaldykla_3": 170.5, "skaldykla_4": 175.5, "skaldykla_5": 169.0, "sulinys_1": 132.0, "sulinys_2": 150.5, "sulinys_3": 160.0, "sulinys_4": 167.0, "sulinys_5": 196.5, "ukis_1": 146.0, "ukis_2": 136.0, "ukis_3": 153.0, "ukis_4": 150.0, "ukis_5": 169.5, "zolininke_1": 175.0, "zolininke_2": 170.5, "zolininke_3": 188.5, "zolininke_4": 187.5, "zolininke_5": 198.5, "zvejas_1": 155.0, "zvejas_2": 173.5, "zvejas_3": 191.5, "zvejas_4": 191.0, "zvejas_5": 207.0};
-// v13b: nomad structures are drawn smaller (~2x2) in the middle of their unchanged 3x3 plot; the rest is a sand yard
-const KSC={k_pastoge:.6,k_palapine:.6,k_zemine:.62,k_stovykla:.58,k_puodzerija:.58,k_aptvaras:.64,k_javai:.64,k_titnagas:.5,k_zvejyba:.5,k_dziovykla:.42,k_lauzas:.4};
-function kYard(b){const s=b.s||3,[X,Y]=wpos(b.x+s-1,b.y+s-1),cy=Y+TH-s*TH/2,hw=s*TW/2,hh=s*TH/2;ctx.fillStyle='rgba(219,193,146,0.92)';ctx.beginPath();ctx.moveTo(X,cy-hh);ctx.lineTo(X+hw,cy);ctx.lineTo(X,cy+hh);ctx.lineTo(X-hw,cy);ctx.closePath();ctx.fill();}
+// v15: nomad structures sit on a 2x2 plot; campfire, drying rack and small workshops are drawn smaller still
+const KSC={k_titnagas:.85,k_zvejyba:.85,k_dziovykla:.75,k_lauzas:.7};
 function spriteDims(b,lv){const nm=B[b.t].spr[lv-1],im=img(nm);if(!im)return null;const s=b.s||3,m=SM[nm.slice(2)];if(!m)return null;
  const sc=s*TW/(m[2]-m[1])*(KSC[nm.slice(2)]||1),w=im.width*sc,h=im.height*sc;const[X,Y]=wpos(b.x+s-1,b.y+s-1);return{im,x:X-m[3]*sc,y:Y+TH-s*TH/2-SCY[nm.slice(2)]*sc,w,h};}
 function render(){
@@ -659,7 +659,7 @@ function drawB(b,top){const z=cam.z;let d;
   if(dd&&pr>0.02){const f=Math.min(1,pr);ctx.drawImage(dd.im,0,dd.im.height*(1-f),dd.im.width,dd.im.height*f,dd.x,dd.y+dd.h*(1-f),dd.w,dd.h*f);}
   if(sc){const w=TW*s*1.05,h=sc.height*w/sc.width;ctx.globalAlpha=1-0.6*pr;ctx.drawImage(sc,X-w/2,Y+TH-h+TH*0.1*s,w,h);ctx.globalAlpha=1;}
   d=dd;}
- else{d=spriteDims(b,b.lv);if(d&&KSC[B[b.t].spr[b.lv-1].slice(2)])kYard(b);if(d)ctx.drawImage(d.im,d.x,d.y,d.w,d.h);
+ else{d=spriteDims(b,b.lv);if(d)ctx.drawImage(d.im,d.x,d.y,d.w,d.h);
   if(b.st=='upg'){const sc=img('statybviete');if(sc&&d){const w=d.w*0.8,h=sc.height*w/sc.width;ctx.globalAlpha=0.85;ctx.drawImage(sc,d.x+d.w*0.1,d.y+d.h-h*0.95,w,h);ctx.globalAlpha=1;}}}
  if(!d)return;
  if(b.fire>0){top.push(()=>drawFire(b,d));}
@@ -757,7 +757,8 @@ function endBuild(){if(roadMode){endRoad();return;}build=null;$('buildbar').clas
 $('bmOk').onclick=()=>{if(roadMode){roadMode.del=!roadMode.del;updRoad();return;}if(!build)return;const e=canPlace(build.t,build.x,build.y);if(e){toast(e);return;}clearPlot(build.t,build.x,build.y);addB(build.t,build.x,build.y,0);toast('Statybvietė pažymėta – gyventojai patys atneš medžiagas ir pastatys');save();endBuild();};
 $('bmNo').onclick=endBuild;
 function jobTitle(p){if(p.ch)return 'vaikas';if(p.sick)return 'serga';if(p.fire)return 'gesina gaisrą';if(p.role)return 'statybininkas';if(p.help)return 'padeda statyti';const j=bId(p.job);if(j)return {malkine:'medkirtys',medziotojas:'medžiotojas',zvejas:'žvejys',zolininke:p.sex=='f'?'žolininkė':'žolininkas',skaldykla:'akmenskaldys',lentpjuve:'lentpjovys',ukis:p.sex=='f'?'sėjėja':'pjovėjas',kstovykla:'medžiotojas',zvejyba:'žvejys',titnagas:'titnago meistras',aptvaras:'ožkų piemenė',javai:'javų augintoja',gyvuliai:p.sex=='f'?'gyvulių šėrėja':'skerdikas',malunas:'malūnininkas',kepykla:'kepėja'}[j.t];if(p.sg)return 'akmenų rinkėjas';if(S.era<5)return p.sex=='f'?'rinkėja':'medžiotojas';return p.sex=='f'?'šeimininkė':'nešikas';}
-let popT=0;function popGuard(){return performance.now()-popT<600;}
+let popT=0,popTouch=0;// v15: don't rebuild the popup while a finger is on it (rebuilding swallowed taps on Griauti / Atšaukti)
+{const p=document.getElementById('pop');if(p)for(const ev of['pointerdown','touchstart','pointerup','touchend'])p.addEventListener(ev,()=>{popTouch=performance.now();},{passive:true,capture:true});}function popGuard(){return performance.now()-popT<600;}
 function openPop(b){if(sel!==b.id)popT=performance.now();sel=b.id;renderPop();$('pop').classList.remove('hidden');}
 function closePop(){sel=null;$('pop').classList.add('hidden');}
 function renderPop(){const b=bId(sel);if(!b){closePop();return;}const d=B[b.t];let h=`<div class="ph"><img src="img/${d.spr[Math.max(0,b.lv-1)]}.webp"><div><h3>${d.n}</h3><div class="sub">${d.k?(b.lv?'Klajoklių pastatas':'Statoma'):b.lv?`${b.lv} lygis iš 5 – ${d.lv[b.lv-1]}`:'Statoma'}</div></div><button class="x" id="popX">✕</button></div>`;
@@ -840,7 +841,7 @@ function tap(sx,sy){const[X,Y]=s2w(sx,sy);const[tx,ty]=w2t(X,Y);
 let speed=1,paused=false;
 function frame(t){const dt=Math.min(0.1,(t-lastT)/1000||0.016);lastT=t;fps=fps*0.95+0.05/Math.max(dt,1e-3);
  if(!paused){let g=dt*speed;while(g>0){const s=Math.min(0.1,g);tick(s);g-=s;}}
- render();if(t-(frame.h||0)>400){frame.h=t;hud();hint();if(sel&&!$('pop').classList.contains('hidden'))renderPop();}requestAnimationFrame(frame);}
+ render();if(t-(frame.h||0)>400){frame.h=t;hud();hint();if(sel&&!$('pop').classList.contains('hidden')&&performance.now()-popTouch>900)renderPop();}requestAnimationFrame(frame);}
 document.addEventListener('visibilitychange',()=>{if(document.hidden){save();paused=true;}else{paused=false;lastT=performance.now();}});
 addEventListener('pagehide',save);addEventListener('resize',resize);
 function centerStart(){const st=S.b.find(b=>b.t=='sandelis'||b.t=='lauzas')||{x:44,y:40};const[X,Y]=wpos(st.x+1,st.y);cam={x:X,y:Y,z:0.45};}
