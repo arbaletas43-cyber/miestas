@@ -29,3 +29,5 @@ html,body{margin:0;height:100%;overflow:hidden;background:#161a20;font-family:-a
 #menu .up{background:#c0563a;border-color:#7d2e1b}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#f3e3c0;font-size:20px;background:#161a20}
 .up.demo{background:#a5503a;color:#fff;margin-top:6px}
+
+.res.three{margin-top:5px;font-size:14px;justify-content:flex-start;gap:12px}
