@@ -361,9 +361,11 @@ function deerTick(dt){
  for(const d of S.deer){if(d.st)continue;d.w-=dt;if(d.w<=0){const tx=d.x+rnd(-3,3),ty=d.y+rnd(-3,3);if(inM(tx|0,ty|0)&&walk(tx|0,ty|0)&&'fg'.includes(terr(tx|0,ty|0))){d.tx=tx;d.ty=ty;}d.w=rnd(4,10);}
   const dx=d.tx-d.x,dy=d.ty-d.y,l=Math.hypot(dx,dy);if(l>0.05){const s=Math.min(l,0.6*dt);d.x+=dx/l*s;d.y+=dy/l*s;if(Math.abs(dx-dy)>.01)d.fl=dx-dy>0?1:-1;d.mv=1;}else d.mv=0;}}
 // ---------- placement ----------
+// v9: trees on a new plot are cleared automatically (anyone working on them is released)
+function clearPlot(t,x,y){const s=B[t].size[0];for(let i=0;i<s;i++)for(let j=0;j<s;j++){const o=objAt[idx(x+i,y+j)];if(o&&isTree(o)){for(const p of S.p)if(p.tgt===o||(p.tgt&&p.tgt.x===o.x&&p.tgt.y===o.y))abort(p);removeObj(o);}}}
 function canPlace(t,x,y){const s=B[t].size[0];let water=false;
  for(let i=0;i<s;i++)for(let j=0;j<s;j++){const X=x+i,Y=y+j;if(!inM(X,Y))return 'Už žemėlapio ribų';if(!S.fog[idx(X,Y)])return 'Ši vieta dar neatrasta';
-  const te=terr(X,Y);if(te=='w')return 'Negalima statyti ant vandens';if(te=='u'||te=='c')return 'Negalima statyti ant kalno';if(occ[idx(X,Y)])return 'Vieta užimta';const o=objAt[idx(X,Y)];if(o)return isTree(o)?'Čia auga medis':o.k=='kelmas'?'Čia kelmas':'Čia guli akmenys';if(BR.has(idx(X,Y)))return 'Čia tiltas';if(inReserve(X,Y))return 'Ši vieta rezervuota namo plėtrai';}
+  const te=terr(X,Y);if(te=='w')return 'Negalima statyti ant vandens';if(te=='u'||te=='c')return 'Negalima statyti ant kalno';if(occ[idx(X,Y)])return 'Vieta užimta';const o=objAt[idx(X,Y)];if(o&&!isTree(o))return o.k=='kelmas'?'Čia kelmas':'Čia guli akmenys';if(BR.has(idx(X,Y)))return 'Čia tiltas';if(inReserve(X,Y))return 'Ši vieta rezervuota namo plėtrai';}
  if(B[t].mtn){let k=0;for(let i=0;i<s;i++)for(const[X,Y]of[[x+i,y-1],[x+i,y+s],[x-1,y+i],[x+s,y+i]])if(inM(X,Y)&&isMtn(X,Y))k++;if(k<1)return 'Skaldykla turi stovėti prie pat kalno ar uolos';}
  if(B[t].water){for(let i=-1;i<=s;i++)for(let j=-1;j<=s;j++){const X=x+i,Y=y+j;if(inM(X,Y)&&terr(X,Y)=='w')water=true;}if(!water)return 'Žvejo trobelė turi būti prie vandens';}
  return '';}
@@ -397,6 +399,8 @@ let build=null,sel=null,lastT=0,fps=60;
 const SM={"gyvuliai_1":[373,2,370,192,282],"gyvuliai_2":[392,3,389,196,291],"gyvuliai_3":[392,2,388,194,311],"gyvuliai_4":[385,2,382,191,311],"gyvuliai_5":[471,2,468,217,312],"kepykla_1":[355,1,353,181,270],"kepykla_2":[364,1,362,186,278],"kepykla_3":[375,1,373,189,297],"kepykla_4":[394,1,392,198,303],"kepykla_5":[404,1,402,203,296],"lentpjuve_1":[391,1,389,200,271],"lentpjuve_2":[382,1,380,192,274],"lentpjuve_3":[379,1,377,192,272],"lentpjuve_4":[384,1,382,195,273],"lentpjuve_5":[418,1,416,206,290],"malkine_1":[367,1,365,187,269],"malkine_2":[378,1,376,192,264],"malkine_3":[388,1,386,195,283],"malkine_4":[393,1,391,195,295],"malkine_5":[417,1,415,201,301],"malunas_1":[349,1,347,179,330],"malunas_2":[359,1,357,183,335],"malunas_3":[369,1,367,184,365],"malunas_4":[378,1,376,195,360],"malunas_5":[399,1,397,194,370],"medziotojas_1":[360,1,358,188,294],"medziotojas_2":[374,1,372,196,288],"medziotojas_3":[387,1,385,197,302],"medziotojas_4":[393,1,391,201,303],"medziotojas_5":[411,1,409,210,310],"namas_1":[430,1,428,221,364],"namas_2":[416,1,414,211,376],"namas_3":[413,1,411,209,404],"namas_4":[417,1,415,212,403],"namas_5":[441,1,439,220,409],"sandelis_1":[355,1,353,184,271],"sandelis_2":[372,1,370,189,289],"sandelis_3":[384,1,382,193,300],"sandelis_4":[389,1,387,194,305],"sandelis_5":[411,1,409,206,321],"skaldykla_1":[389,1,387,191,295],"skaldykla_2":[383,1,381,190,286],"skaldykla_3":[376,1,374,191,298],"skaldykla_4":[384,1,382,197,301],"skaldykla_5":[416,1,414,207,296],"sulinys_1":[370,1,368,188,265],"sulinys_2":[379,1,377,195,285],"sulinys_3":[383,1,381,196,294],"sulinys_4":[391,1,389,198,304],"sulinys_5":[413,1,411,208,330],"ukis_1":[372,2,369,190,276],"ukis_2":[391,2,386,194,280],"ukis_3":[391,2,387,195,285],"ukis_4":[384,2,381,191,294],"ukis_5":[467,2,463,196,300],"zolininke_1":[377,1,375,191,299],"zolininke_2":[380,1,378,194,300],"zolininke_3":[385,1,383,199,319],"zolininke_4":[403,1,401,204,319],"zolininke_5":[428,1,426,214,329],"zvejas_1":[380,1,378,193,281],"zvejas_2":[383,1,381,192,300],"zvejas_3":[383,1,381,193,313],"zvejas_4":[407,1,405,203,313],"zvejas_5":[428,1,426,212,334]};
 // v7: every sprite is a fenced plot; scale so the plot diamond spans exactly the building footprint, bottom vertex on footprint bottom vertex
 const WB={"gyvuliai_1":[36,59,295,253],"gyvuliai_2":[104,38,325,227],"gyvuliai_3":[131,147,306,279],"gyvuliai_4":[109,41,331,249],"gyvuliai_5":[70,124,400,271],"kepykla_1":[149,62,185,96],"kepykla_2":[44,103,237,168],"kepykla_3":[31,99,259,187],"kepykla_4":[118,3,275,210],"kepykla_5":[55,94,169,156],"lentpjuve_1":null,"lentpjuve_2":[91,50,262,133],"lentpjuve_3":[106,83,346,155],"lentpjuve_4":[66,92,383,162],"lentpjuve_5":[11,51,239,194],"malkine_1":[77,62,188,125],"malkine_2":[255,98,289,135],"malkine_3":[47,66,331,180],"malkine_4":[48,79,340,203],"malkine_5":[36,54,371,172],"malunas_1":[129,104,236,199],"malunas_2":[122,100,284,248],"malunas_3":[139,128,206,266],"malunas_4":[45,118,263,245],"malunas_5":[112,117,267,298],"medziotojas_1":[37,76,323,200],"medziotojas_2":[107,65,343,190],"medziotojas_3":[28,61,267,196],"medziotojas_4":[142,53,338,173],"medziotojas_5":[168,76,305,182],"namas_1":[166,101,232,197],"namas_2":[103,105,390,241],"namas_3":[89,149,306,252],"namas_4":[65,165,388,271],"namas_5":[29,147,369,295],"sandelis_1":null,"sandelis_2":[61,72,196,195],"sandelis_3":[70,31,292,124],"sandelis_4":[42,90,327,213],"sandelis_5":[62,97,379,243],"skaldykla_1":[83,28,293,196],"skaldykla_2":[56,39,299,178],"skaldykla_3":[50,83,329,211],"skaldykla_4":[20,12,361,204],"skaldykla_5":[60,22,353,236],"sulinys_1":[36,47,260,143],"sulinys_2":[163,70,282,139],"sulinys_3":[167,73,340,216],"sulinys_4":[59,99,339,207],"sulinys_5":[79,116,233,167],"ukis_1":[52,10,346,243],"ukis_2":[148,17,311,249],"ukis_3":[30,55,310,254],"ukis_4":[54,42,360,263],"ukis_5":[63,25,439,259],"zolininke_1":[77,74,341,166],"zolininke_2":[57,55,311,266],"zolininke_3":[2,100,319,215],"zolininke_4":[81,101,356,246],"zolininke_5":[78,117,382,289],"zvejas_1":[81,38,234,135],"zvejas_2":[51,65,308,219],"zvejas_3":[101,81,259,231],"zvejas_4":[115,86,371,221],"zvejas_5":[31,19,428,265]};
+// v9: chimney tops per sprite (sprite px, measured); sprites without a chimney emit no smoke
+const CHIM={namas_1:[205,7],namas_3:[231,7],namas_4:[238,7],namas_5:[235,7]};
 function spriteDims(b,lv){const nm=B[b.t].spr[lv-1],im=img(nm);if(!im)return null;const s=b.s||3,m=SM[nm.slice(2)];if(!m)return null;
  const sc=s*TW/(m[2]-m[1]),w=im.width*sc,h=im.height*sc;const[X,Y]=wpos(b.x+s-1,b.y+s-1);return{im,x:X-m[3]*sc,y:Y+TH-m[4]*sc,w,h};}
 function render(){
@@ -457,11 +461,11 @@ function render(){
    ctx.fillStyle='rgba(230,245,255,.8)';for(let d=0;d<4;d++){ctx.beginPath();ctx.arc(X-12+d*3,Y-3-Math.sin(f*6+d)*3,1.1,0,7);ctx.fill();}}}}}
  // chimney smoke
  for(const b of S.b){if(b.t!='namas'||!b.lv||b.st=='demo'||!(b.wood>0))continue;if(!S.p.some(p=>p.home==b.id))continue;const d=spriteDims(b,b.lv);if(!d)continue;const cook=S.p.some(p=>p.home==b.id&&p.act=='verda sriubą');
-  const cx=d.x+d.w*(b.lv==1?0.62:0.66),cy=d.y+d.h*(b.lv==1?0.14:0.1),n=cook?7:4;
-  for(let i=0;i<n;i++){const f=((S.t*0.35+i/n+b.id*0.13)%1);const r=(3+f*12)*(cook?1.2:1);ctx.fillStyle=`rgba(${cook?215:200},${cook?210:200},${cook?205:205},${0.55*(1-f)})`;ctx.beginPath();ctx.arc(cx+Math.sin(f*4+i+S.t*0.7)*5+f*14,cy-f*55,r,0,7);ctx.fill();}}
+  const ch=CHIM[B[b.t].spr[b.lv-1].slice(2)];if(!ch)continue;const csc=d.w/SM[B[b.t].spr[b.lv-1].slice(2)][0],cx=d.x+ch[0]*csc,cy=d.y+ch[1]*csc,n=cook?7:4;
+  for(let i=0;i<n;i++){const f=((S.t*0.35+i/n+b.id*0.13)%1);const r=(3+f*12)*(cook?1.2:1);ctx.fillStyle=`rgba(${cook?215:200},${cook?210:200},${cook?205:205},${0.55*(1-f)})`;ctx.beginPath();ctx.arc(cx+Math.sin(f*4+i+S.t*0.7)*4*f+f*12,cy-2-f*50,r,0,7);ctx.fill();}}
  // night
  {const dk=darkness();if(dk>0){ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=`rgba(14,20,52,${0.58*dk})`;ctx.fillRect(0,0,cv.width,cv.height);ctx.restore();
-  ctx.save();ctx.globalCompositeOperation='lighter';for(const b of S.b){if(!b.lv||b.st=='demo')continue;const lit=b.t=='namas'?S.p.some(p=>p.home==b.id):B[b.t].wk&&S.p.some(p=>p.job==b.id);if(!lit)continue;const d=spriteDims(b,b.lv);if(!d)continue;
+  ctx.save();ctx.globalCompositeOperation='lighter';for(const b of S.b){if(!b.lv||b.st=='demo')continue;const lit=S.p.some(p=>p.in&&!p.mv&&(b.t=='namas'?p.home==b.id:(B[b.t].wk&&p.job==b.id&&!/miega/.test(p.act||'')))&&Math.abs(p.x-(b.x+b.s/2))<=b.s/2+1.6&&Math.abs(p.y-(b.y+b.s/2))<=b.s/2+1.6);if(!lit)continue;const d=spriteDims(b,b.lv);if(!d)continue;
    const nm=B[b.t].spr[b.lv-1].slice(2),wb=WB[nm],wi=wb&&img('w_'+nm);if(!wi)continue;const sc=d.w/SM[nm][0],fl=0.82+0.18*Math.sin(S.t*7+b.id)*Math.sin(S.t*2.3+b.id*1.7);
    ctx.globalAlpha=Math.min(1,dk*1.1*fl);for(let k=0;k<2;k++)ctx.drawImage(wi,d.x+wb[0]*sc,d.y+wb[1]*sc,(wb[2]-wb[0])*sc,(wb[3]-wb[1])*sc);ctx.globalAlpha=1;}
   ctx.restore();}}
@@ -469,25 +473,34 @@ function render(){
  for(const f of top)f();
  if(build&&build.x!=null){const b={t:build.t,x:build.x,y:build.y};const d=spriteDims(b,1);if(d){ctx.globalAlpha=0.6;ctx.drawImage(d.im,d.x,d.y,d.w,d.h);ctx.globalAlpha=1;}}
 }
-let cobP=null;function mkCobP(){const c0=document.createElement('canvas');c0.width=c0.height=64;const c=c0.getContext('2d');c.fillStyle='#857a6c';c.fillRect(0,0,64,64);
- let sd=11;const r=()=>{sd=(sd*9301+49297)%233280;return sd/233280;};for(let gy=0;gy<8;gy++)for(let gx=0;gx<8;gx++){const x=gx*8+(gy%2)*4+r()*1.4,y=gy*8+4+r()*1.4;const v=128+r()*58|0;for(const[dx,dy]of[[0,0],[64,0],[-64,0],[0,64],[0,-64]]){c.fillStyle=`rgb(${v},${v-6|0},${v-16|0})`;c.strokeStyle='rgba(55,48,40,.7)';c.lineWidth=1.1;c.beginPath();c.ellipse(x+dx,y+dy,3.5,3.1,0,0,7);c.fill();c.stroke();c.fillStyle='rgba(255,255,255,.16)';c.beginPath();c.ellipse(x+dx-1,y+dy-1,1.4,1.1,0,0,7);c.fill();}}
- cobP=ctx.createPattern(c0,'repeat');}
-// v8: roads autotile – continuous rounded paths, smooth corners, 2×2+ blocks merge into a seamless plaza
-function roadPath(tx0,tx1,ty0,ty1){const L=[];let P;const nw=()=>{P=new Path2D();L.push(P);return P;},H=0.36,has=(x,y)=>inM(x,y)&&RD.has(idx(x,y));
+let cobP=null;function mkCobP(){const Z=128,c0=document.createElement('canvas');c0.width=c0.height=Z;const c=c0.getContext('2d');c.fillStyle='#665842';c.fillRect(0,0,Z,Z);
+ let sd=11;const r=()=>{sd=(sd*9301+49297)%233280;return sd/233280;};const G=7,st=Z/G;
+ for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){const x=(gx+.5)*st+(gy%2)*st/2+(r()-.5)*2.2,y=(gy+.5)*st+(r()-.5)*2.2,rx=st*(.44+r()*.12),ry=st*(.40+r()*.1),rot=r()*3;
+  const v=r(),tone=[138+v*50,127+v*46,106+v*38].map(q=>q|0),warm=r()<.35?14:0;
+  for(const[dx,dy]of[[0,0],[Z,0],[-Z,0],[0,Z],[0,-Z],[Z,Z],[-Z,-Z],[Z,-Z],[-Z,Z]]){const X=x+dx,Y=y+dy;if(X<-st||X>Z+st||Y<-st||Y>Z+st)continue;
+   c.fillStyle='rgba(40,32,24,.55)';c.beginPath();c.ellipse(X+.8,Y+1,rx,ry,rot,0,7);c.fill();
+   c.fillStyle=`rgb(${tone[0]+warm},${tone[1]+warm/2|0},${tone[2]})`;c.beginPath();c.ellipse(X,Y,rx,ry,rot,0,7);c.fill();
+   c.fillStyle='rgba(255,246,225,.14)';c.beginPath();c.ellipse(X-rx*.25,Y-ry*.3,rx*.45,ry*.32,rot,0,7);c.fill();}}
+ // grit
+ for(let i=0;i<260;i++){c.fillStyle=`rgba(${r()<.5?60:200},${r()<.5?50:185},40,.25)`;c.fillRect(r()*Z,r()*Z,1,1);}
+ cobP=ctx.createPattern(c0,'repeat');cobP.Z=Z;}
+// v9: cobblestone fills the tile width; tiles join into continuous paths, 2×2+ merges into a plaza; soft earthen edges
+function roadPath(tx0,tx1,ty0,ty1){const L=[];let P;const nw=()=>{P=new Path2D();L.push(P);return P;},H=0.45,has=(x,y)=>inM(x,y)&&RD.has(idx(x,y));
  for(const i of RD){const x=i%N,y=(i/N)|0;if(x<tx0-1||x>tx1+1||y<ty0-1||y>ty1+1)continue;const cx=x+.5,cy=y+.5;
-  nw();P.moveTo(cx+H,cy);P.arc(cx,cy,H,0,6.2832);
-  if(has(x+1,y))nw().rect(cx,cy-H,1,2*H);if(has(x,y+1))nw().rect(cx-H,cy,2*H,1);
-  if(has(x+1,y)&&has(x,y+1)&&has(x+1,y+1))nw().rect(cx,cy,1,1);
-  // diagonal links keep paths continuous when drawn corner-to-corner
-  if(has(x+1,y+1)&&!has(x+1,y)&&!has(x,y+1)){nw();P.moveTo(cx-H*.7,cy+H*.7);P.lineTo(cx+H*.7,cy-H*.7);P.lineTo(cx+1+H*.7,cy+1-H*.7);P.lineTo(cx+1-H*.7,cy+1+H*.7);P.closePath();}
-  if(has(x-1,y+1)&&!has(x-1,y)&&!has(x,y+1)){nw();P.moveTo(cx-H*.7,cy-H*.7);P.lineTo(cx+H*.7,cy+H*.7);P.lineTo(cx-1+H*.7,cy+1+H*.7);P.lineTo(cx-1-H*.7,cy+1-H*.7);P.closePath();}
-  // inner corner fillet for L-turns
-  for(const[dx,dy]of[[1,1],[-1,1],[1,-1],[-1,-1]]){if(has(x+dx,y)&&has(x,y+dy)&&!has(x+dx,y+dy)){const F=0.22,ix=cx+dx*H,iy=cy+dy*H;nw();P.moveTo(ix,iy);P.lineTo(ix+dx*F,iy);P.quadraticCurveTo(ix,iy,ix,iy+dy*F);P.closePath();}}}
+  const e=has(x+1,y),w=has(x-1,y),s=has(x,y+1),n=has(x,y-1),R0=0.22;
+  nw();P.roundRect(cx-H,cy-H,2*H,2*H,[(!n&&!w)?R0:0,(!n&&!e)?R0:0,(!s&&!e)?R0:0,(!s&&!w)?R0:0]);
+  if(e)nw().rect(cx,cy-H,1,2*H);if(s)nw().rect(cx-H,cy,2*H,1);
+  if(e&&s&&has(x+1,y+1))nw().rect(cx,cy,1,1);
+  const D=H*.75;
+  if(has(x+1,y+1)&&!e&&!s){nw();P.moveTo(cx-D,cy+D);P.lineTo(cx+D,cy-D);P.lineTo(cx+1+D,cy+1-D);P.lineTo(cx+1-D,cy+1+D);P.closePath();}
+  if(has(x-1,y+1)&&!w&&!s){nw();P.moveTo(cx-D,cy-D);P.lineTo(cx+D,cy+D);P.lineTo(cx-1+D,cy+1+D);P.lineTo(cx-1-D,cy+1-D);P.closePath();}
+  for(const[dx,dy]of[[1,1],[-1,1],[1,-1],[-1,-1]]){if(has(x+dx,y)&&has(x,y+dy)&&!has(x+dx,y+dy)){const F=0.3,ix=cx+dx*H,iy=cy+dy*H;nw();P.moveTo(ix,iy);P.lineTo(ix+dx*F,iy);P.quadraticCurveTo(ix,iy,ix,iy+dy*F);P.closePath();}}}
  return L;}
-function drawRoads(tx0,tx1,ty0,ty1){if(!RD.size)return;if(!cobP)mkCobP();const L=roadPath(tx0,tx1,ty0,ty1);ctx.save();ctx.transform(TW/2,TH/2,-TW/2,TH/2,WW/2,0);
- ctx.fillStyle='rgba(60,50,38,.55)';ctx.save();ctx.translate(0.03,0.03);for(const P of L)ctx.fill(P);ctx.restore();
- ctx.strokeStyle='rgba(70,58,44,.9)';ctx.lineWidth=0.09;ctx.lineJoin='round';for(const P of L)ctx.stroke(P);
- cobP.setTransform(new DOMMatrix([1/64,0,0,1/64,0,0]));ctx.fillStyle=cobP;for(const P of L)ctx.fill(P);ctx.restore();}
+function drawRoads(tx0,tx1,ty0,ty1){if(!RD.size)return;if(!cobP)mkCobP();const L=roadPath(tx0,tx1,ty0,ty1);ctx.save();ctx.transform(TW/2,TH/2,-TW/2,TH/2,WW/2,0);ctx.lineJoin='round';
+ // soft earthen rim: wide faint strokes underneath (interior strokes are covered by the fill)
+ for(const[w,a]of[[0.26,.10],[0.17,.16],[0.09,.28]]){ctx.strokeStyle=`rgba(112,88,56,${a})`;ctx.lineWidth=w;for(const P of L)ctx.stroke(P);}
+ cobP.setTransform(new DOMMatrix([1/cobP.Z*1.4,0,0,1/cobP.Z*1.4,0,0]));ctx.fillStyle=cobP;for(const P of L)ctx.fill(P);
+ ctx.restore();}
 let cob=null;function mkCob(){cob=document.createElement('canvas');cob.width=96;cob.height=48;const c=cob.getContext('2d');c.beginPath();c.moveTo(48,1);c.lineTo(95,24);c.lineTo(48,47);c.lineTo(1,24);c.closePath();c.fillStyle='#8f8578';c.fill();c.save();c.clip();
  let sd=7;const r=()=>{sd=(sd*9301+49297)%233280;return sd/233280;};for(let gy=0;gy<8;gy++)for(let gx=0;gx<14;gx++){const x=gx*7+(gy%2)*3.5+r()*1.5,y=gy*6+r()*1.5;const v=120+r()*60|0;c.fillStyle=`rgb(${v},${v-6|0},${v-16|0})`;c.strokeStyle='rgba(55,48,40,.75)';c.lineWidth=1;c.beginPath();c.ellipse(x,y,3.3,2.4,0,0,7);c.fill();c.stroke();c.fillStyle='rgba(255,255,255,.18)';c.beginPath();c.ellipse(x-1,y-1,1.4,0.8,0,0,7);c.fill();}
  c.restore();c.strokeStyle='rgba(70,60,48,.8)';c.lineWidth=2;c.beginPath();c.moveTo(48,1);c.lineTo(95,24);c.lineTo(48,47);c.lineTo(1,24);c.closePath();c.stroke();}
@@ -627,7 +640,7 @@ function startBuild(t){closePop();if(roadMode)endRoad();build={t,x:null,y:null};
  const[a,b]=w2t(cam.x,cam.y);build.x=Math.floor(a)-(B[t].size[0]>>1);build.y=Math.floor(b)-(B[t].size[0]>>1);updBuild();}
 function updBuild(){const e=canPlace(build.t,build.x,build.y);$('bmText').textContent=e?('✖ '+e):`✔ ${B[build.t].n} – ${costTxt(B[build.t].cost[0])}. Bakstelėkite kitą vietą arba patvirtinkite.`;$('bmOk').disabled=!!e;}
 function endBuild(){if(roadMode){endRoad();return;}build=null;$('buildbar').classList.remove('hidden');$('buildmode').classList.add('hidden');}
-$('bmOk').onclick=()=>{if(roadMode){roadMode.del=!roadMode.del;updRoad();return;}if(!build)return;const e=canPlace(build.t,build.x,build.y);if(e){toast(e);return;}addB(build.t,build.x,build.y,0);toast('Statybvietė pažymėta – gyventojai patys atneš medžiagas ir pastatys');save();endBuild();};
+$('bmOk').onclick=()=>{if(roadMode){roadMode.del=!roadMode.del;updRoad();return;}if(!build)return;const e=canPlace(build.t,build.x,build.y);if(e){toast(e);return;}clearPlot(build.t,build.x,build.y);addB(build.t,build.x,build.y,0);toast('Statybvietė pažymėta – gyventojai patys atneš medžiagas ir pastatys');save();endBuild();};
 $('bmNo').onclick=endBuild;
 function jobTitle(p){if(p.ch)return 'vaikas';if(p.sick)return 'serga';if(p.fire)return 'gesina gaisrą';if(p.role)return 'statybininkas';const j=bId(p.job);if(j)return {malkine:'medkirtys',medziotojas:'medžiotojas',zvejas:'žvejys',zolininke:p.sex=='f'?'žolininkė':'žolininkas',skaldykla:'akmenskaldys',lentpjuve:'lentpjovys',ukis:p.sex=='f'?'sėjėja':'pjovėjas',gyvuliai:p.sex=='f'?'gyvulių šėrėja':'skerdikas',malunas:'malūnininkas',kepykla:'kepėja'}[j.t];if(p.sg)return 'akmenų rinkėjas';return p.sex=='f'?'šeimininkė':'nešikas';}
 let popT=0;function popGuard(){return performance.now()-popT<600;}
@@ -710,7 +723,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){save();pau
 addEventListener('pagehide',save);addEventListener('resize',resize);
 function centerStart(){const st=S.b.find(b=>b.t=='sandelis')||{x:44,y:40};const[X,Y]=wpos(st.x+1,st.y);cam={x:X,y:Y,z:0.45};}
 Object.assign(window,{nearTrees,saveGame:save,isTree,startBuild,updBuild,endBuild,darkness,openPop,demolish,inM,terr,__bld:()=>build});window.__dbg={get S(){return S},grow3,rebuildGrids,load,speed:k=>speed=k,tick:(sec)=>{for(let i=0;i<sec*10;i++)tick(0.1);},fps:()=>fps,cam:()=>cam,setCam:(x,y,z)=>{const[X,Y]=wpos(x,y);cam={x:X,y:Y,z:z||cam.z};},
- place:(t,x,y)=>{const e=canPlace(t,x,y);if(e)return e;addB(t,x,y,0);return 'ok';},canPlace,upgrade:id=>upgrade(bId(id)),save,load,fire:id=>{const b=bId(id);b.fire=30;},sick:id=>{const p=S.p.find(q=>q.id==id);p.sick=DAY*2;abort(p);},reveal,openPop:id=>openPop(bId(id)),startBuild,tap,roadAt:(x,y)=>{roadMode=roadMode||{del:false};roadAt(x,y);},spawnP,startRoad,get RD(){return RD},finish:id=>{const b=bId(id);if(b.site)finishSite(b);},w2s:(x,y)=>{const[X,Y]=wpos(x,y);return[(X-cam.x)*cam.z+W/2,(Y-cam.y)*cam.z+H/2];}};
+ place:(t,x,y)=>{const e=canPlace(t,x,y);if(e)return e;clearPlot(t,x,y);addB(t,x,y,0);return 'ok';},canPlace,upgrade:id=>upgrade(bId(id)),save,load,fire:id=>{const b=bId(id);b.fire=30;},sick:id=>{const p=S.p.find(q=>q.id==id);p.sick=DAY*2;abort(p);},reveal,openPop:id=>openPop(bId(id)),startBuild,tap,roadAt:(x,y)=>{roadMode=roadMode||{del:false};roadAt(x,y);},spawnP,startRoad,get RD(){return RD},finish:id=>{const b=bId(id);if(b.site)finishSite(b);},w2s:(x,y)=>{const[X,Y]=wpos(x,y);return[(X-cam.x)*cam.z+W/2,(Y-cam.y)*cam.z+H/2];}};
 fetch('map.json').then(r=>r.json()).then(m=>{MAP=m;N=m.N;TER=m.T;WW=N*TW;HH=N*TH;
  for(let x=0;x<N;x++)if(TER[44][x]=='w'&&x>25&&x<40)BR.add(idx(x,44));
  resize();buildMenu();if(!load()){newGame();centerStart();}clampCam();
